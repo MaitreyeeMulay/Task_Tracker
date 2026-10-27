@@ -2,6 +2,49 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-10-27: T4 Terraform skeleton
+
+### The first resource is a budget alert
+- **Why:** SPEC.md requires a budget alert before anything is deployed. Budgets without actions are free under AWS pricing at the time of writing. Check again before applying.
+- The alert email is a `sensitive` variable with no default. It lives only in a git-ignored `terraform.tfvars`.
+
+### Terraform tests with a mocked provider
+- `terraform test` with `mock_provider "aws"` and `command = plan` checks the budget's type, limit, thresholds and recipient, and that validation rejects bad input. It needs no AWS credentials, so it runs in CI and on any laptop.
+- **Trade-off:** mocks don't prove AWS accepts the config. That's only proven by a real `apply`, which is marked untested until the owner runs it.
+
+### Provider pinned exactly, lock file committed
+- `hashicorp/aws = 6.70.0`. The lock file holds hashes for `linux_amd64` (CI) and `windows_amd64` (local). Add more platforms with `terraform providers lock -platform=...` if a contributor needs them.
+
+### Local state for now
+- No `apply` runs from CI yet. M6 design: an S3 backend with encryption, versioning and locking, with CI signing in through GitHub OIDC.
+
+### Region `eu-west-2` (London)
+- An assumed default. The owner can change it with the `region` variable.
+
+## 2026-10-27: T3 migrations and first schema
+
+### In-repo migration runner with checksums
+- **Why:** no extra dependency, and the rules are ours and tested: editing an applied migration, deleting one or adding one out of order all stop the run. Checksums normalise line endings because the repo lives on Windows and OneDrive.
+- **Trade-off:** no down migrations. That's deliberate: changes are additive, so the previous code version keeps working.
+
+### Scripts run as TypeScript directly on Node 24
+- `node scripts/migrate.ts` uses Node's built-in type stripping, so there's no `tsx` or `ts-node` dependency. To keep this safe, `tsconfig` now sets `allowImportingTsExtensions`, `verbatimModuleSyntax` and `erasableSyntaxOnly`, so typecheck rejects syntax Node can't strip.
+
+### App role `app_rw` is NOLOGIN
+- **Why:** a migration must never contain a password. Each environment creates its own login role and grants it `app_rw`: in M2 for local use, and through IAM database auth in the cloud design.
+- **For now:** the app still connects as the compose superuser, and the health check only runs `SELECT 1`. **This must change before the app queries team data (M2, T14).**
+
+### RLS closed by default, team policies in M2
+- Every table has RLS enabled and forced with no read policies. Tests prove the app role sees 0 rows. A catalog test fails if any future table lacks RLS.
+
+### Roles on memberships deferred to M2
+- **Open question for the owner:** SPEC.md doesn't say whether Admin, Responder and Viewer are global or per team. The column will be added additively in M2 with a safe default (`viewer`) once this is answered.
+
+### audit_log append-only through grants and triggers
+- The app role gets INSERT only. Triggers block UPDATE, DELETE and TRUNCATE for everyone, including the owner.
+- **Limit:** a superuser can still disable the triggers. That's accepted: the cloud design never gives the app a superuser.
+- The audit insert policy is `WITH CHECK (true)`, which lets anyone holding `app_rw` write any audit row. It's tightened in M2 so `actor_user_id` must equal the current user.
+
 ## 2026-10-27: T2 health check and Docker stack
 
 ### Health endpoint returns 503 when the database is down

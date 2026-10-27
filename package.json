@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run --dir src",
-    "test:db": "vitest run --dir test/db"
+    "test:db": "vitest run --config vitest.db.config.ts",
+    "migrate": "node --env-file-if-exists=.env scripts/migrate.ts"
   },
   "dependencies": {
     "next": "16.4.3",

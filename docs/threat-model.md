@@ -49,6 +49,9 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | Viewer writes | RLS write policies exclude Viewers | Viewer UPDATE fails |
 | Audit tampering | The app role gets INSERT only on `audit_log` | UPDATE/DELETE on `audit_log` fails |
 | SQL injection | Parameterised queries only, plus CodeQL | CodeQL is clean |
+| App connects with too much privilege | `app_rw` is NOLOGIN, not a superuser, no BYPASSRLS, owns no tables. **Gap:** locally the app still uses the compose superuser until T14 | DB test on the role's attributes (passing) |
+| Migration tampering | Checksums on applied migrations, ordering checks, advisory lock | Unit tests (passing) |
+| Tests wipe a real database | Test runner refuses any database whose name doesn't end in `_test` | Unit test (passing) |
 
 ### Web app and auth (M2, M5)
 
@@ -69,6 +72,9 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | Vulnerable dependency | OSV-Scanner, Dependabot | Fails on critical |
 | Risky IaC | Checkov, tflint | Fails on high |
 | Fork pull request steals secrets | No secrets in PR workflows, no `pull_request_target` | Review |
+| Terraform state leaks values | State is never committed (`*.tfstate` is git-ignored). Sensitive variables live only in a git-ignored `terraform.tfvars`. M6: encrypted remote state | Review |
+| Provider binary swapped | Exact provider version plus committed lock file hashes | `terraform init` verifies the hashes |
+| Surprise cloud bill | Budget alert at 50%, 80%, 100% and forecast 100% | `terraform test` (passing). The real apply is untested |
 
 ## Security acceptance criteria per milestone
 
@@ -87,5 +93,7 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 ## Change log
 
 - 2026-10-27: added the health endpoint (T2).
+- 2026-10-27: added the migration runner, the app role and RLS closed by default (T3).
+- 2026-10-27: added the Terraform skeleton and budget alert (T4).
 
 - 2026-10-26: first draft (M0).
