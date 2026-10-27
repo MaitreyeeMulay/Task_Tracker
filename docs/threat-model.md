@@ -77,6 +77,15 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 - **M2:** cross-team access and Viewer writes fail in DB tests.
 - **M3:** runbook markdown cannot inject scripts (test with a `<script>` payload).
 
+### Health endpoint (M0)
+
+| Threat | Mitigation |
+| --- | --- |
+| Information disclosure | Fixed body with no error text. Logs hold the error code only |
+| Denial of service | DB connect and query timeouts of 2 seconds. The pool is capped at 10 |
+
 ## Change log
+
+- 2026-10-27: added the health endpoint (T2).
 
 - 2026-10-26: first draft (M0).

@@ -2,6 +2,24 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-10-27: T2 health check and Docker stack
+
+### Health endpoint returns 503 when the database is down
+- **Why:** load balancers and uptime checks can act on the status code. The body is fixed (`status`, `db`) and never contains error text.
+- **Trade-off:** the endpoint is unauthenticated and reveals whether the database is up. That is low risk, and normal for health checks.
+
+### DB errors are logged by code only
+- **Why:** pg error messages can contain host and user names. Logs record `{event, code}` (project rule: log ids and counts, not details).
+
+### Container hardening
+- Multi-stage build with Next.js `standalone` output, so the runtime image has no dev dependencies or source.
+- Runs as the non-root `node` user. `npm ci --ignore-scripts` stops dependencies running code at build time.
+- Base images are pinned by digest. Compose ports bind to `127.0.0.1` so the DB is not exposed on the LAN.
+- **Trade-off:** digest pins go stale. Dependabot (T5) will raise update pull requests.
+
+### Separate test database created by an init script
+- `db/init/01-create-test-db.sql` creates `incident_tracker_test` when the volume is first created. **Caveat:** an existing volume doesn't re-run init scripts. In that case, run `docker compose down -v` to recreate it, which deletes dev data.
+
 ## 2026-10-27: T1 toolchain
 
 ### TypeScript pinned to 6.0.3, not 7.0
