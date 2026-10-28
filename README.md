@@ -2,7 +2,7 @@
 
 Turns monitoring alerts into incidents, guides responders with runbooks and keeps an audit trail. It is built to show DevSecOps practice end to end. See [`SPEC.md`](SPEC.md).
 
-**Status:** M0 in progress. The build scope is M0 to M3. M4 to M6 are designed but not built (see [`docs/decisions.md`](docs/decisions.md)).
+**Status:** M0 done. M1 next. The build scope is M0 to M3. M4 to M6 are designed but not built (see [`docs/decisions.md`](docs/decisions.md)).
 
 ## Run it locally
 
@@ -78,13 +78,13 @@ Every push to `main` and every pull request runs two workflows. All third-party 
 A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinned action or an undigested Docker image, lacks top-level `permissions`, uses `write-all`, or uses `pull_request_target`.
 
 **Verified:** all 6 CI jobs and both CodeQL analyses passed on `main` at `1ea1f00` (2026-10-27). A Dependabot pull request bumping TypeScript to 7.0.2 was correctly blocked: `npm ci` failed on a peer-dependency conflict.
-**Not yet verified:** that each gate fails on a planted problem (T6).
+**Gate proof (2026-10-28):** PR #2 planted a fake API key. The required secret scan failed, every other check passed, and the PR could not be merged. `main` is protected by the `protect-main` ruleset (see `docs/github-setup.md`).
 
 ## Milestones
 
 | # | Status | Notes |
 | --- | --- | --- |
-| M0 Foundation | In progress | |
+| M0 Foundation | Done | CI green, gates proven, `main` protected |
 | M1 Ingestion | Not started | |
 | M2 Incidents and team scoping | Not started | |
 | M3 Runbooks | Not started | |
