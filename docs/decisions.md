@@ -2,6 +2,18 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-10-28: T6 GitHub setup
+
+### A ruleset instead of classic branch protection
+- **Why:** only rulesets support "Require code scanning results", which is the gate that makes CodeQL fail pull requests on high or above. The settings are written down in `docs/github-setup.md`, because they can't be stored as code in this repo.
+
+### PR required with 0 approvals (owner's decision, 2026-10-28)
+- **Why:** this is a solo repo, and GitHub doesn't let authors approve their own PRs. Requiring 1 approval would force an admin bypass on every change, which is weaker than an honest 0 with no bypass.
+- **Trade-off:** there is no second pair of eyes, so the automated checks carry the weight. Revisit when a collaborator joins.
+
+### The gate proof uses a fake secret generated at run time
+- The planted value is created by a command when the proof is run, so it never sits in any committed file. Otherwise gitleaks would flag the instructions themselves on `main`.
+
 ## 2026-10-28: T5 CI and security gates
 
 ### Checkov fails on any failed check, not only "high"
