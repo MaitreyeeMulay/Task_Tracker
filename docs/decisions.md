@@ -2,6 +2,13 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-10-28: T7 CloudWatch alarm parsing
+
+- **Fingerprint** = SHA-256 of the alarm ARN. The ARN is unique per alarm and already covers account, region and the alarm's fixed dimensions, so repeats of the same alarm match whatever the state, reason or time.
+- **Severity:** CloudWatch has none, so it's read from a `SEV1`–`SEV4` tag in the alarm description (for example `[SEV2] ...`), defaulting to SEV3. Easy to change if the owner prefers another rule.
+- **States:** `ALARM` means firing, `OK` means resolved. `INSUFFICIENT_DATA` is ignored, so missing metrics never page anyone.
+- **Untrusted input:** validated with `zod` (4.6.7, no dependencies, MIT). Only the fields we use are checked, with length limits. Errors name the failing fields, never their values.
+
 ## 2026-10-28: T6 GitHub setup
 
 ### A ruleset instead of classic branch protection

@@ -1,0 +1,12 @@
+{
+  "Type": "Notification",
+  "MessageId": "5a1c1d8e-2f43-5b6d-9c1a-0e7f2b3c4d5e",
+  "TopicArn": "arn:aws:sns:eu-west-2:123456789012:incident-tracker-alerts",
+  "Subject": "ALARM: \"checkout-api-5xx\" in EU (London)",
+  "Message": "{\"AlarmName\":\"checkout-api-5xx\",\"AlarmDescription\":\"[SEV2] Checkout API returning 5xx\",\"AWSAccountId\":\"123456789012\",\"NewStateValue\":\"ALARM\",\"NewStateReason\":\"Threshold Crossed: 1 datapoint [12.0] was greater than the threshold (5.0).\",\"StateChangeTime\":\"2026-10-28T09:15:02.123+0000\",\"Region\":\"EU (London)\",\"AlarmArn\":\"arn:aws:cloudwatch:eu-west-2:123456789012:alarm:checkout-api-5xx\",\"OldStateValue\":\"OK\",\"Trigger\":{\"MetricName\":\"5XXError\",\"Namespace\":\"AWS/ApiGateway\",\"Statistic\":\"SUM\",\"Dimensions\":[{\"name\":\"ApiName\",\"value\":\"checkout\"}],\"Period\":60,\"EvaluationPeriods\":1,\"ComparisonOperator\":\"GreaterThanThreshold\",\"Threshold\":5.0}}",
+  "Timestamp": "2026-10-28T09:15:02.456Z",
+  "SignatureVersion": "2",
+  "Signature": "ZmFrZS1zaWduYXR1cmUtZm9yLXRlc3Rz",
+  "SigningCertURL": "https://sns.eu-west-2.amazonaws.com/SimpleNotificationService-0000000000000000000000.pem",
+  "UnsubscribeURL": "https://sns.eu-west-2.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:eu-west-2:123456789012:incident-tracker-alerts:00000000-0000-0000-0000-000000000000"
+}
