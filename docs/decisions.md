@@ -2,6 +2,30 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-10-28: T5 CI and security gates
+
+### Checkov fails on any failed check, not only "high"
+- **Why:** open-source Checkov reports no severities without a paid Prisma Cloud API key, so `--hard-fail-on HIGH` can't work. Failing on everything is stricter than the spec's threshold. Any skip needs an inline `#checkov:skip=<id>:<reason>` and an entry in `security-decisions.md`.
+
+### `npm audit` is the dependency gate instead of OSV-Scanner
+- **Why:** SPEC.md allows "npm audit or OSV-Scanner". `npm audit --audit-level=critical` gives the spec's exact threshold with no extra tool. OSV-Scanner v2 has no equally simple severity threshold.
+- **Trade-off:** it only covers the npm advisory database. Container OS packages get Trivy in M5 (designed, not built).
+
+### Scanners run as pinned binaries or digests, not third-party actions
+- gitleaks is downloaded from its release and verified against a SHA-256 written into the workflow. Checkov runs as a Docker image pinned by digest.
+- **Why:** fewer third-party actions holding the job token, and a swapped release asset fails the checksum.
+
+### CodeQL also scans the workflows
+- The `actions` language finds injection risks in workflow files themselves, such as untrusted `${{ }}` input inside `run:`.
+- **Gate:** CodeQL uploads results but doesn't fail the job itself. The "fail on high or critical" gate is a GitHub code-scanning merge rule, set up in T6.
+
+### CI database uses trust auth
+- The Postgres service container in CI uses `POSTGRES_HOST_AUTH_METHOD=trust`. It's a throwaway database on the runner, so there's no password to manage or leak, and nothing secret-looking for gitleaks to flag.
+
+### Dependabot: TypeScript held below 6.1
+- Dependabot's TypeScript 7.0.2 pull request failed CI (`npm ci` peer conflict with typescript-eslint, which supports `<6.1`). An `ignore` rule stops it being proposed again.
+- **Lift when** typescript-eslint supports TypeScript 7. Check monthly. Tracked in `security-decisions.md` with an expiry date.
+
 ## 2026-10-27: T4 Terraform skeleton
 
 ### The first resource is a budget alert

@@ -71,7 +71,10 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | Over-privileged token | `permissions: contents: read` by default | Review |
 | Vulnerable dependency | OSV-Scanner, Dependabot | Fails on critical |
 | Risky IaC | Checkov, tflint | Fails on high |
-| Fork pull request steals secrets | No secrets in PR workflows, no `pull_request_target` | Review |
+| Fork pull request steals secrets | No secrets in PR workflows. `pull_request_target` is banned by a unit test. `persist-credentials: false` on every checkout | Unit test (passing) |
+| Workflow injection | CodeQL `actions` analysis on every PR. No untrusted `${{ }}` inside `run:` | CodeQL (passing on `main`) |
+| Unpinned action or image | Unit test fails on any action not pinned to a SHA or any Docker image without a digest | Unit test (passing) |
+| Tampered scanner binary | gitleaks verified against a SHA-256 in the workflow. Checkov image pinned by digest | CI (passing) |
 | Terraform state leaks values | State is never committed (`*.tfstate` is git-ignored). Sensitive variables live only in a git-ignored `terraform.tfvars`. M6: encrypted remote state | Review |
 | Provider binary swapped | Exact provider version plus committed lock file hashes | `terraform init` verifies the hashes |
 | Surprise cloud bill | Budget alert at 50%, 80%, 100% and forecast 100% | `terraform test` (passing). The real apply is untested |
@@ -95,5 +98,6 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 - 2026-10-27: added the health endpoint (T2).
 - 2026-10-27: added the migration runner, the app role and RLS closed by default (T3).
 - 2026-10-27: added the Terraform skeleton and budget alert (T4).
+- 2026-10-28: added CI and supply-chain controls (T5).
 
 - 2026-10-26: first draft (M0).
