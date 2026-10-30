@@ -2,6 +2,13 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-10-30: T9 SNS signature verification
+
+- Follows AWS's documented procedure: rebuild the string to sign from the fields in a fixed order, then RSA-SHA256 verify with the certificate from `SigningCertURL`. **SignatureVersion 1 (SHA-1) is rejected.**
+- **The topic must match the integration's configured topic ARN.** A valid AWS signature only proves AWS sent the message, and anyone can create an SNS topic and subscribe our endpoint to it. This was not in the original plan, and was added because without it the signature check proves nothing about who owns the alarm.
+- **Order of checks:** shape, then topic, then signature version, then certificate URL, and only then a network fetch. A message we'd reject never causes an outbound request.
+- **Outbound calls** (certificate fetch, subscription confirm) sit behind function interfaces. A development stub doesn't touch the network. The real version allows only `https://sns.<region>.amazonaws.com(.cn)` with no port or user info, applies a 15-second timeout, refuses redirects, caps certificates at 16 KB, and caches up to 20 certificates. Failures are never cached.
+
 ## 2026-10-28: T8 webhook signatures
 
 - **Scheme:** `X-Timestamp` (unix seconds) and `X-Signature: v1=<hex HMAC-SHA256(secret, "<ts>.<raw body>")>`. Signing the timestamp stops it being changed to dodge the replay window.

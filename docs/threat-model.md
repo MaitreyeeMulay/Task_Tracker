@@ -39,7 +39,9 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | Denial of service | Huge payload, alert flood | Body size limit, rate limiting (M5), dedupe in the DB | Oversized body → 413 |
 | Elevation of privilege | Alert writes into another team's service | The integration is bound to one service, and the service to one team | Cross-team insert fails |
 | Replay | Old valid alert re-sent | Timestamp window plus a fingerprint dedupe | Replay outside the window → 401 |
-| SSRF | Malicious SNS `SubscribeURL` | Host allow-list. Confirmation goes behind an interface (stubbed in dev) | Non-AWS host is rejected |
+| SSRF | Malicious SNS `SubscribeURL` or `SigningCertURL` | Strict host allow-list (`sns.<region>.amazonaws.com`), https only, no port or user info, no redirects, 15-second timeout. Confirmation goes behind an interface (stubbed in dev) | Unit tests: metadata IP, look-alike hosts, user-info trick, http, ports rejected with no request made (passing) |
+| Spoofing via a foreign SNS topic | Attacker's own topic, validly signed by AWS | Topic ARN must equal the integration's configured topic, checked before any fetch | Unit test (passing) |
+| Weak signature algorithm | SignatureVersion 1 (SHA-1) | Only version 2 (SHA-256) accepted | Unit test (passing) |
 
 ### Team data and the database (M0, M2)
 
@@ -99,5 +101,6 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 - 2026-10-27: added the migration runner, the app role and RLS closed by default (T3).
 - 2026-10-27: added the Terraform skeleton and budget alert (T4).
 - 2026-10-28: added CI and supply-chain controls (T5).
+- 2026-10-30: added SNS verification, the topic allow-check and the outbound SSRF guard (T9).
 
 - 2026-10-26: first draft (M0).
