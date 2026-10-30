@@ -2,6 +2,13 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-10-28: T8 webhook signatures
+
+- **Scheme:** `X-Timestamp` (unix seconds) and `X-Signature: v1=<hex HMAC-SHA256(secret, "<ts>.<raw body>")>`. Signing the timestamp stops it being changed to dodge the replay window.
+- **Rotation:** up to two secrets are valid at once (current and previous). Add the new one, update the sender, then remove the old one, with no downtime. More than two, an empty list, or a secret under 32 characters is a configuration error.
+- **Replay:** requests more than 5 minutes old or in the future are rejected. A replay inside the window is caught by fingerprint dedupe (T10/T11).
+- **Timing:** constant-time comparison (`timingSafeEqual`), and every configured secret is always checked.
+
 ## 2026-10-28: T7 CloudWatch alarm parsing
 
 - **Fingerprint** = SHA-256 of the alarm ARN. The ARN is unique per alarm and already covers account, region and the alarm's fixed dimensions, so repeats of the same alarm match whatever the state, reason or time.
