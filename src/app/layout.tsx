@@ -1,11 +1,28 @@
 import type { ReactNode } from "react";
+import { getCurrentUser } from "@/auth/current-user";
+import { logout } from "./login/actions";
+import "./globals.css";
 
 export const metadata = { title: "Incident tracker" };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const user = await getCurrentUser();
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <header className="topbar">
+          <strong>Incident tracker</strong>
+          {user ? (
+            <form action={logout} className="row">
+              <span className="muted">{user.name}</span>
+              <button type="submit" className="link">
+                Sign out
+              </button>
+            </form>
+          ) : null}
+        </header>
+        <div className="page">{children}</div>
+      </body>
     </html>
   );
 }

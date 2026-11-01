@@ -63,7 +63,10 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 
 | Threat | Mitigation | Status |
 | --- | --- | --- |
-| Dev login used in production | Disabled by config, with a test | Planned (M2) |
+| Dev login used in production | Disabled by config, with a test | Done (M2) |
+| Session forgery or theft | HMAC-signed cookie, constant-time check, HttpOnly, SameSite=Lax, Secure in prod, 8-hour expiry, secret rotation | Done (M2), unit tests |
+| Cross-team access via guessed ids | RLS on `app_rw`: another team's incident reads as "not found" | Done (M2), DB tests |
+| Viewer writes through the UI or by crafted request | RLS write policies exclude viewers. The UI hides buttons, but the DB is the gate | Done (M2), DB tests |
 | Brute force on dev login | Lockout | **Not built (M5 is out of scope).** Accepted: the dev login is only reachable locally |
 | CSRF | SameSite cookies, CSRF token | Partly in M2 (SameSite). Full token in M5, not built |
 | XSS in runbook markdown | Raw HTML disabled in the renderer | Planned (M3) |
@@ -107,6 +110,7 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 - 2026-10-28: added CI and supply-chain controls (T5).
 - 2026-10-30: added SNS verification, the topic allow-check and the outbound SSRF guard (T9).
 - 2026-10-30: added the incident schema, the `app_ingest` role and DB-enforced dedupe (T10).
+- 2026-11-01: M2 added sessions, dev login, team-scoped RLS for users, and status changes with timeline and audit.
 - 2026-11-01: SNS ingestion endpoint live (T11). Body cap of 300 KB, generic errors, ids-only logs. End-to-end tests cover forged and duplicate alerts. Rate limiting is still open (M5, not built), so a flood of *verified* alerts is bounded only by dedupe.
 
 - 2026-10-26: first draft (M0).
