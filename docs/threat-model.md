@@ -50,6 +50,10 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | Cross-team read or write | RLS enabled and forced on every team table, closed by default. User context set with `SET LOCAL` per transaction | Without context, 0 rows. Cross-team query returns 0 rows |
 | Viewer writes | RLS write policies exclude Viewers | Viewer UPDATE fails |
 | Audit tampering | The app role gets INSERT only on `audit_log` | UPDATE/DELETE on `audit_log` fails |
+| Ingestion path over-privileged | `app_ingest` has its own minimal grants and policies: no access to users, memberships or audit reads, cannot resolve or delete | DB tests (passing) |
+| Duplicate incidents from races or retries | Partial unique index per open fingerprint. Unique `(integration_id, external_id)` | DB tests (passing) |
+| Signing secrets in the database | Only a Secrets Manager reference is stored | DB test on columns (passing) |
+| Timeline tampering | `incident_events` is append-only by trigger | DB test (passing) |
 | SQL injection | Parameterised queries only, plus CodeQL | CodeQL is clean |
 | App connects with too much privilege | `app_rw` is NOLOGIN, not a superuser, no BYPASSRLS, owns no tables. **Gap:** locally the app still uses the compose superuser until T14 | DB test on the role's attributes (passing) |
 | Migration tampering | Checksums on applied migrations, ordering checks, advisory lock | Unit tests (passing) |
@@ -102,5 +106,6 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 - 2026-10-27: added the Terraform skeleton and budget alert (T4).
 - 2026-10-28: added CI and supply-chain controls (T5).
 - 2026-10-30: added SNS verification, the topic allow-check and the outbound SSRF guard (T9).
+- 2026-10-30: added the incident schema, the `app_ingest` role and DB-enforced dedupe (T10).
 
 - 2026-10-26: first draft (M0).
