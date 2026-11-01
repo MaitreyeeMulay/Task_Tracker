@@ -2,7 +2,7 @@
 
 Turns monitoring alerts into incidents, guides responders with runbooks and keeps an audit trail. It is built to show DevSecOps practice end to end. See [`SPEC.md`](SPEC.md).
 
-**Status:** M0 done. M1 next. The build scope is M0 to M3. M4 to M6 are designed but not built (see [`docs/decisions.md`](docs/decisions.md)).
+**Status:** M0 done, M1 done. M2 next. The build scope is M0 to M2. M3 to M6 are designed but not built (see [`docs/decisions.md`](docs/decisions.md)).
 
 ## Run it locally
 
@@ -85,9 +85,9 @@ A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinne
 | # | Status | Notes |
 | --- | --- | --- |
 | M0 Foundation | Done | CI green, gates proven, `main` protected |
-| M1 Ingestion | Not started | |
+| M1 Ingestion | Done | `POST /api/ingest/sns/{id}`: verified CloudWatch alarms open incidents, duplicates join them |
 | M2 Incidents and team scoping | Not started | |
-| M3 Runbooks | Not started | |
+| M3 Runbooks | Designed, not built | Scope cut 2026-11-01 |
 | M4 to M6 | Designed, not built | |
 
 ## Security

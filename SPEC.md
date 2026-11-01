@@ -82,6 +82,8 @@ Each milestone ends with something runnable and tested.
 
 **Scope decision (2026-10-26):** with 2 days available, M0 to M3 are built. M4 to M6 are designed and documented but not built, and the security report marks their controls as "not done". M7 is polish if time allows.
 
+**Scope update (2026-11-01):** M3 (runbooks) also moves to "designed, not built". The build ends at M2.
+
 | # | Deliverable | Done when |
 | --- | --- | --- |
 | M0 | Repo, rules file, CI, local Docker stack, health check, first migration, branch protection, secret scanning, Dependabot, pinned actions, minimal token permissions, threat model started | CI is green: typecheck, tests, image build, IaC compile and lint, secret scan |
@@ -135,7 +137,7 @@ Two environments (staging and production) if the budget allows, otherwise one wi
 
 ## Risks
 
-- **Scope.** Build M0 to M3. M4 to M6 are designed only, and M7 is polish.
+- **Scope.** Build M0 to M2 (updated 2026-11-01). M3 to M6 are designed only, and M7 is polish.
 - **Cost.** Set a budget alert before deploying anything.
 - **Account friction.** If the deployment is blocked, finish M0 to M5 locally and document the deploy plan clearly.
 - **Scanner noise.** Triage every finding in writing: fix it, suppress it with a reason, or accept it with an expiry date. Never switch a scanner off to make the build pass.

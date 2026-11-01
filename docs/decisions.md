@@ -2,6 +2,24 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-01: Scope cut (owner decision)
+
+- After a week against a 2-day plan, the owner cut scope: **finish M1 and M2. M3 (runbooks) becomes "designed, not built"**, like M4–M6.
+- Claude now opens PRs and sets them to auto-merge (squash) through the GitHub CLI once required checks pass. No rule bypass, no direct pushes to `main`.
+
+## 2026-11-01: T11 SNS ingestion endpoint
+
+- **Endpoint:** `POST /api/ingest/sns/{integrationId}`. Body capped at 300 KB (SNS max 256 KB), checked against `Content-Length` and while streaming.
+- **Responses:** 413 too large, 400 bad JSON, 404 unknown or inactive integration, 403 failed verification (generic body, reason logged), 422 verified but not a CloudWatch alarm, 202 ignored state, 201 incident opened, 200 updated / cleared / re-delivered, 502 subscription confirm failed, 500 generic.
+- **Transactions:** the integration lookup and the ingest each run in their own short transaction as `app_ingest`. No transaction stays open during the certificate download.
+- **Logs:** ids, outcomes and reasons only. A test checks that payload text never appears.
+- **Subscription confirmation** is live only in production and stubbed elsewhere.
+- **Generic HMAC webhook endpoint: not built** (scope). The verifier (T8) is built and tested. Wiring it needs the Secrets Manager client, so it's left as documented future work.
+- **End-to-end test** (`test/db/ingest-e2e.test.ts`) runs the M1 criteria through the real handler, real signature verification and real Postgres: a sample alert opens an incident, a duplicate doesn't, a forgery is rejected and stores nothing. It was written after the parts it connects, so it was not shown failing first.
+
+### Incident: corrupted file in `node_modules/zod`
+- Lint crashed on a syntax error in `node_modules/zod/v4/locales/en.cjs`. A diff against the official 4.6.7 tarball showed one changed line (`const` garbled to `i    conat`) and no other differences. That looks like an accidental edit or sync corruption, not tampering, since it broke the code rather than adding behaviour. Fixed by reinstalling from the registry (integrity-checked against the lockfile). CI uses a clean `npm ci`, so it was never affected.
+
 ## 2026-10-30: T10 incident schema (owner approved both recommendations)
 
 ### Integration secrets live in AWS Secrets Manager
