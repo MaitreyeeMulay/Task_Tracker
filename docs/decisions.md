@@ -2,6 +2,32 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-10-30: T10 incident schema (owner approved both recommendations)
+
+### Integration secrets live in AWS Secrets Manager
+- `integrations.secret_ref` holds only a Secrets Manager name or ARN. The database never stores a signing secret, and a test fails if a secret-like column appears. SNS integrations store their topic ARN instead, which the T9 topic check uses.
+
+### Separate `app_ingest` database role for the webhook path
+- No user is behind an incoming alert, so ingestion uses its own role. It can read active integrations and services, insert alerts, open incidents (status `triggered` only), bump `alert_count` and `last_alert_at` on **open** incidents (column-level grant), and write `alert_received`/`alert_resolved` timeline and audit rows.
+- It cannot read users, memberships or the audit log, change integrations, resolve incidents, or delete anything. Each of these is a DB test.
+
+### Dedupe enforced in the database
+- A partial unique index allows one open incident per `(service_id, fingerprint)`. Even concurrent duplicate alerts can't open two incidents. `(integration_id, external_id)` is unique, so an SNS retry of the same MessageId is a no-op.
+- `incidents (service_id, team_id)` references `services (id, team_id)`, so an incident can't be filed under a team that doesn't own the service.
+
+### Cleared alarms do not auto-resolve incidents
+- A CloudWatch `OK` adds an `alert_resolved` timeline entry. A person still resolves the incident, which keeps responders in charge. The ingest role is unable to resolve.
+
+### Mistake during T10
+- My first draft used `{1,256}` in a CHECK regex, which exceeds Postgres's limit of 255. It only failed when rows were checked, after the migration was recorded in the **test** database. The checksum guard then correctly refused the corrected file. The migration had never been committed or applied to dev, so I fixed it and recreated `incident_tracker_test`. Lesson: DB tests must insert at least one row through every CHECK constraint, which the T10 tests now do.
+
+## 2026-10-30: T9 SNS signature verification
+
+- Follows AWS's documented procedure: rebuild the string to sign from the fields in a fixed order, then RSA-SHA256 verify with the certificate from `SigningCertURL`. **SignatureVersion 1 (SHA-1) is rejected.**
+- **The topic must match the integration's configured topic ARN.** A valid AWS signature only proves AWS sent the message, and anyone can create an SNS topic and subscribe our endpoint to it. This was not in the original plan, and was added because without it the signature check proves nothing about who owns the alarm.
+- **Order of checks:** shape, then topic, then signature version, then certificate URL, and only then a network fetch. A message we'd reject never causes an outbound request.
+- **Outbound calls** (certificate fetch, subscription confirm) sit behind function interfaces. A development stub doesn't touch the network. The real version allows only `https://sns.<region>.amazonaws.com(.cn)` with no port or user info, applies a 15-second timeout, refuses redirects, caps certificates at 16 KB, and caches up to 20 certificates. Failures are never cached.
+
 ## 2026-10-28: T8 webhook signatures
 
 - **Scheme:** `X-Timestamp` (unix seconds) and `X-Signature: v1=<hex HMAC-SHA256(secret, "<ts>.<raw body>")>`. Signing the timestamp stops it being changed to dodge the replay window.
