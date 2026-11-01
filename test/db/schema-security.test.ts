@@ -73,10 +73,14 @@ describe("row-level security", () => {
 });
 
 describe("audit_log is append-only", () => {
-  it("lets the app role insert", async () => {
+  // Since 0003 the app role may only insert audit rows that name the acting user
+  // (positive case in team-scoping.test.ts). With no user set, nothing is allowed.
+  it("refuses app-role inserts when no user is set", async () => {
     await inRollback(client, async () => {
       await client.query("SET LOCAL ROLE app_rw");
-      expect(await dbError(client, "INSERT INTO audit_log (action, entity_type, entity_id) VALUES ('test', 'team', '1')")).toBeNull();
+      expect((await dbError(client, "INSERT INTO audit_log (action, entity_type, entity_id) VALUES ('test', 'team', '1')"))?.code).toBe(
+        INSUFFICIENT_PRIVILEGE,
+      );
     });
   });
 

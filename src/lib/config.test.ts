@@ -20,6 +20,12 @@ describe("loadConfig", () => {
     expect(loadConfig({ NODE_ENV: "development", DEV_LOGIN_ENABLED: "1" }).devLoginEnabled).toBe(false);
   });
 
+  it("reads the session secret, current first, then the previous one during rotation", () => {
+    expect(loadConfig({ SESSION_SECRET: "a", SESSION_SECRET_PREVIOUS: "b" }).sessionSecrets).toEqual(["a", "b"]);
+    expect(loadConfig({ SESSION_SECRET: "a" }).sessionSecrets).toEqual(["a"]);
+    expect(loadConfig({}).sessionSecrets).toEqual([]);
+  });
+
   it("treats an unknown NODE_ENV as production", () => {
     const config = loadConfig({ NODE_ENV: "staging", DEV_LOGIN_ENABLED: "true" });
     expect(config.environment).toBe("production");

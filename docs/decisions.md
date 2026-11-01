@@ -2,6 +2,17 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-01: M2 incidents UI and team scoping
+
+- **Roles are per team** (`memberships.role`: admin, responder, viewer; default viewer). The spec didn't say whether roles were global or per team. Per team is the more flexible choice, and it was made to keep moving. Changing it later would be an additive migration.
+- **Team scoping lives in RLS** (`0003_team_policies.sql`). Every user query runs as `app_rw` with `app.user_id` set per transaction (`withUser`). Policies limit reads to the user's teams, and limit incident updates and timeline inserts to admins and responders. Viewers match no write policy. Membership rows are visible only to their owner, which keeps the "my teams" lookup non-recursive.
+- **Users can read only their own profile.** The timeline therefore stores the actor's display name on each event (`data.actor_name`) instead of joining to `users`.
+- **Status rules** (`src/incidents/status.ts`): forward only, steps may be skipped, resolved is final. Updates use `WHERE status = <old>`, so a concurrent change gives a "conflict" and is never retried automatically.
+- **Sessions:** a stateless HMAC-signed cookie (`tracker_session`): HttpOnly, SameSite=Lax, Secure in production, 8 hours, with two secrets for rotation. No new dependency.
+- **Dev login:** email only, no password. It's disabled in production by config. The email lookup is the one query that runs before a user is known, so it doesn't go through `withUser`. Production sign-in (OIDC) and lockout are M5, not built.
+- **CSRF:** status changes are Next.js server actions (POST only, Origin checked against Host) with a SameSite=Lax cookie. Token-based CSRF was M5 (not built).
+- **UI:** plain CSS, no UI library. Works at phone width and in dark mode.
+
 ## 2026-11-01: Scope cut (owner decision)
 
 - After a week against a 2-day plan, the owner cut scope: **finish M1 and M2. M3 (runbooks) becomes "designed, not built"**, like M4–M6.

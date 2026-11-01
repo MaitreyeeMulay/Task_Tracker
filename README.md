@@ -2,7 +2,7 @@
 
 Turns monitoring alerts into incidents, guides responders with runbooks and keeps an audit trail. It is built to show DevSecOps practice end to end. See [`SPEC.md`](SPEC.md).
 
-**Status:** M0 done, M1 done. M2 next. The build scope is M0 to M2. M3 to M6 are designed but not built (see [`docs/decisions.md`](docs/decisions.md)).
+**Status:** M0, M1 and M2 done. The build scope is M0 to M2. M3 to M6 are designed but not built (see [`docs/decisions.md`](docs/decisions.md)).
 
 ## Run it locally
 
@@ -42,6 +42,15 @@ npm run test:db   # needs the compose db running: docker compose up -d db
 - The app role `app_rw` is not a superuser, cannot bypass RLS and owns no tables.
 - Every table has RLS enabled and forced. With no policies yet, the app role reads 0 rows and cannot insert.
 - `audit_log` is append-only: the app role can insert but not read, update or delete it. Update, delete and truncate are blocked by a trigger, even for the owner.
+
+### Try the app (M2)
+
+```sh
+npm run migrate && npm run seed   # sample teams, users and incidents (dev only)
+npm run dev                       # then open http://localhost:3000
+```
+
+Sign in with `alice@example.test` (Responder, Payments), `bob@example.test` (Viewer, Payments) or `carol@example.test` (Responder, Search). Each person sees only their own team's incidents. Alice can acknowledge, mitigate and resolve; Bob can only look. Requires `DEV_LOGIN_ENABLED=true` and a `SESSION_SECRET` in `.env` (see `.env.example`).
 
 ### Infrastructure (Terraform)
 
@@ -86,7 +95,7 @@ A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinne
 | --- | --- | --- |
 | M0 Foundation | Done | CI green, gates proven, `main` protected |
 | M1 Ingestion | Done | `POST /api/ingest/sns/{id}`: verified CloudWatch alarms open incidents, duplicates join them |
-| M2 Incidents and team scoping | Not started | |
+| M2 Incidents and team scoping | Done | Login, incident list and detail, status changes, timeline; RLS proves team isolation |
 | M3 Runbooks | Designed, not built | Scope cut 2026-11-01 |
 | M4 to M6 | Designed, not built | |
 
