@@ -2,6 +2,13 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-01: M3 runbooks (re-added to scope by the owner after M2 worked)
+
+- **Markdown without HTML:** a small in-repo reader (`src/runbooks/markdown.ts`) turns runbook Markdown into plain-text blocks that React renders as text. No HTML is ever produced, so script injection isn't possible, and there's no Markdown/sanitizer dependency. A test confirms `<script>` and `<img onerror>` stay literal text. It supports headings, paragraphs, lists, code blocks and `- [ ]` checklist steps (at most 100).
+- **Runs:** one `runbook_runs` row per runbook per incident, created by the first completed step. `runbook_step_completions` has primary key `(run_id, step_index)`, so a step can't be completed twice. It's append-only by trigger. Each completion also writes a `runbook_step` timeline event and an audit row.
+- **Scoping:** a runbook opens only from an incident of the same service. RLS limits reads to the user's teams and writes to admins/responders, with `started_by`/`completed_by` required to be the acting user. The timeline insert policy was extended to allow `runbook_step`.
+- **Authoring:** runbooks come from the seed script. No editor screen was built, to save time.
+
 ## 2026-11-01: M2 incidents UI and team scoping
 
 - **Roles are per team** (`memberships.role`: admin, responder, viewer; default viewer). The spec didn't say whether roles were global or per team. Per team is the more flexible choice, and it was made to keep moving. Changing it later would be an additive migration.

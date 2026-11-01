@@ -49,6 +49,9 @@ export async function listIncidents(db: ClientBase): Promise<IncidentSummary[]> 
 function describe(kind: string, data: Record<string, unknown>): string | null {
   if (kind === "status_changed" && typeof data.from === "string" && typeof data.to === "string") return `${data.from} → ${data.to}`;
   if (kind === "alert_resolved") return "alarm cleared";
+  if (kind === "runbook_step" && typeof data.runbook_title === "string" && typeof data.step_text === "string") {
+    return `${data.runbook_title}: ✓ ${data.step_text}`;
+  }
   return null;
 }
 

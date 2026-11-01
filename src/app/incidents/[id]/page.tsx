@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/auth/current-user";
 import { withUser } from "@/db/with-user";
 import { getIncident } from "@/incidents/repo";
+import { listRunbooksForIncident } from "@/runbooks/repo";
 import { allowedNextStatuses } from "@/incidents/status";
 import { getPool } from "@/lib/db";
 import { changeStatusAction } from "./actions";
@@ -32,7 +33,11 @@ export default async function IncidentPage({
 }) {
   const [{ id }, { error }] = await Promise.all([params, searchParams]);
   const user = await requireUser();
-  const incident = await withUser(getPool(), user.id, (db) => getIncident(db, id));
+  const data = await withUser(getPool(), user.id, async (db) => ({
+    incident: await getIncident(db, id),
+    runbooks: await listRunbooksForIncident(db, id),
+  }));
+  const { incident, runbooks } = data;
   if (!incident) notFound();
 
   const next = incident.canWrite ? allowedNextStatuses(incident.status) : [];
@@ -67,6 +72,22 @@ export default async function IncidentPage({
       ) : !incident.canWrite ? (
         <p className="muted">You have read-only access to this team.</p>
       ) : null}
+
+      <h2>Runbooks</h2>
+      {runbooks.length === 0 ? (
+        <p className="muted">No runbooks for {incident.service}.</p>
+      ) : (
+        <ul>
+          {runbooks.map((rb) => (
+            <li key={rb.id}>
+              <Link href={`/incidents/${incident.id}/runbooks/${rb.id}`}>{rb.title}</Link>{" "}
+              <span className="muted">
+                ({rb.doneCount}/{rb.stepCount} steps)
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <h2>Timeline</h2>
       <ol className="timeline">

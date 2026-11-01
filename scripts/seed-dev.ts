@@ -13,8 +13,77 @@ async function main(): Promise<void> {
     const existing = await client.query("SELECT 1 FROM users WHERE lower(email) = 'alice@example.test'");
     if (existing.rowCount) {
       console.log(JSON.stringify({ event: "seed_skipped", reason: "already seeded" }));
-      return;
+    } else {
+      await seedCore(client);
     }
+    await seedRunbooks(client);
+  } finally {
+    await client.end();
+  }
+}
+
+const RUNBOOKS: { service: string; title: string; body: string }[] = [
+  {
+    service: "checkout-api",
+    title: "Checkout 5xx errors",
+    body: `# Checkout 5xx errors
+
+Customers see errors when paying. Act fast: every minute costs orders.
+
+## Diagnose
+- [ ] Open the checkout dashboard and confirm the error rate
+- [ ] Check whether a deploy went out in the last hour
+- [ ] Check the payment provider's status page
+
+## Mitigate
+- [ ] If a recent deploy is the cause, roll it back
+- [ ] Post an update in the incident channel
+
+\`\`\`
+kubectl rollout undo deployment/checkout-api
+\`\`\`
+`,
+  },
+  {
+    service: "ledger",
+    title: "Ledger disk filling up",
+    body: `# Ledger disk filling up
+
+- [ ] Find the largest directories on the volume
+- [ ] Rotate or archive old logs
+- [ ] If above 90%, expand the volume
+`,
+  },
+  {
+    service: "search-api",
+    title: "Search API down",
+    body: `# Search API down
+
+- [ ] Check the load balancer health checks
+- [ ] Restart unhealthy tasks
+- [ ] Fail over to the standby cluster if restarts do not help
+`,
+  },
+];
+
+async function seedRunbooks(client: pg.Client): Promise<void> {
+  const count = (await client.query<{ n: number }>("SELECT count(*)::int AS n FROM runbooks")).rows[0]?.n ?? 0;
+  if (count > 0) {
+    console.log(JSON.stringify({ event: "seed_runbooks_skipped", reason: "already seeded" }));
+    return;
+  }
+  for (const rb of RUNBOOKS) {
+    await client.query(
+      `INSERT INTO runbooks (team_id, service_id, title, body_md)
+       SELECT team_id, id, $2, $3 FROM services WHERE name = $1`,
+      [rb.service, rb.title, rb.body],
+    );
+  }
+  console.log(JSON.stringify({ event: "seed_runbooks_done", runbooks: RUNBOOKS.length }));
+}
+
+async function seedCore(client: pg.Client): Promise<void> {
+  try {
     await client.query("BEGIN");
     await client.query(`
       WITH tp AS (INSERT INTO teams (name) VALUES ('Payments') RETURNING id),
@@ -49,8 +118,6 @@ async function main(): Promise<void> {
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     throw error;
-  } finally {
-    await client.end();
   }
 }
 
