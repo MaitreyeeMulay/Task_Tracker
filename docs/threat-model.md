@@ -107,5 +107,6 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 - 2026-10-28: added CI and supply-chain controls (T5).
 - 2026-10-30: added SNS verification, the topic allow-check and the outbound SSRF guard (T9).
 - 2026-10-30: added the incident schema, the `app_ingest` role and DB-enforced dedupe (T10).
+- 2026-11-01: SNS ingestion endpoint live (T11). Body cap of 300 KB, generic errors, ids-only logs. End-to-end tests cover forged and duplicate alerts. Rate limiting is still open (M5, not built), so a flood of *verified* alerts is bounded only by dedupe.
 
 - 2026-10-26: first draft (M0).
