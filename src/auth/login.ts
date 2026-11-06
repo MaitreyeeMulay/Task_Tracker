@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { isLocked, lockoutAfterFailure } from "./lockout.ts";
 import { hashPassword, passwordProblem, verifyPassword } from "./password.ts";
@@ -9,7 +10,7 @@ import { hashPassword, passwordProblem, verifyPassword } from "./password.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // A valid hash of a random password, used to equalise timing for unknown users.
-const DUMMY_HASH = hashPassword(`dummy-${Math.random()}-${Date.now()}`);
+const DUMMY_HASH = hashPassword(randomBytes(32).toString("base64url"));
 
 async function asAuth<T>(pool: Pool, fn: (db: PoolClient) => Promise<T>): Promise<T> {
   const db = await pool.connect();
