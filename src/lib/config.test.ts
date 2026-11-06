@@ -26,6 +26,22 @@ describe("loadConfig", () => {
     expect(loadConfig({}).sessionSecrets).toEqual([]);
   });
 
+  it("enables OIDC only when issuer, client id, secret and redirect URI are all set", () => {
+    const full = { OIDC_ISSUER: "https://idp.example", OIDC_CLIENT_ID: "c", OIDC_CLIENT_SECRET: "s", OIDC_REDIRECT_URI: "https://app.example/auth/oidc/callback" };
+    expect(loadConfig(full).oidc).toEqual({
+      issuer: "https://idp.example",
+      clientId: "c",
+      clientSecret: "s",
+      redirectUri: "https://app.example/auth/oidc/callback",
+    });
+    expect(loadConfig({ ...full, OIDC_CLIENT_SECRET: "" }).oidc).toBeNull();
+  });
+
+  it("requires https for OIDC outside development", () => {
+    const http = { OIDC_ISSUER: "http://idp.example", OIDC_CLIENT_ID: "c", OIDC_CLIENT_SECRET: "s", OIDC_REDIRECT_URI: "https://app.example/cb" };
+    expect(loadConfig({ ...http, NODE_ENV: "production" }).oidc).toBeNull();
+  });
+
   it("treats an unknown NODE_ENV as production", () => {
     const config = loadConfig({ NODE_ENV: "staging", DEV_LOGIN_ENABLED: "true" });
     expect(config.environment).toBe("production");

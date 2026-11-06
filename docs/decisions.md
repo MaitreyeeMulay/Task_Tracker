@@ -2,6 +2,15 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-08: M5-B OIDC sign-in for production
+
+- **Library:** `openid-client` 6.8.9 (MIT, OpenID-certified; depends only on `jose` and `oauth4webapi` by the same maintainer). Reviewed before adding. Hand-rolled OIDC is a classic source of security bugs.
+- **Flow:** authorization code with **PKCE (S256)**, **state** and **nonce**. They are carried between `/auth/oidc/start` and `/auth/oidc/callback` in a 10-minute HMAC-signed, HttpOnly, SameSite=Lax cookie scoped to `/auth/oidc`. ID token checks (signature via JWKS, issuer, audience, expiry, nonce) are done by the library. The callback URL is rebuilt from the configured redirect URI, so a proxy's internal host can't change what gets validated.
+- **No self-signup** (SPEC non-goal): only existing users can sign in. The first login links `users.oidc_subject` ("issuer|sub") by a **verified** email only; after that the subject alone identifies the user, even if their email changes at the provider. Unknown users see "ask a team admin to add you".
+- **Config:** OIDC turns on only when `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and `OIDC_REDIRECT_URI` are all set, with https required outside development. The client secret comes from the environment (Secrets Manager in M6).
+- **Tested end to end** (`test/db/oidc.test.ts`) against a fake provider running in the test: discovery, JWKS, token endpoint, RS256 ID tokens. It covers sign-in, subject linking, unknown user, unverified email, state mismatch (login CSRF), and a bad or replayed code (PKCE).
+- **Not verified against a real provider** (Cognito, Entra ID, Google…). That needs one configured in M6.
+
 ## 2026-11-08: M5-A password login with lockout, rate limits, headers, CSRF
 
 - **Passwords:** Node's built-in `scrypt` (N=32768, r=8, p=1, 16-byte salt), stored with its parameters so they can be raised later. Length 12–128. No dependency.
