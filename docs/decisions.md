@@ -2,6 +2,13 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-08: M5-C audit log view and export
+
+- Team **admins** can read their own teams' audit entries (`0011`: SELECT plus an `app_is_admin` policy). The log stays append-only: no UPDATE or DELETE grants, and the triggers from 0001 block them for everyone.
+- **Export:** `POST /audit/export` returns a CSV of up to 50,000 rows. It's a POST so the CSRF check applies. **The export is written to the audit log itself** (`audit.exported`, with the row count), as SPEC behaviour 6 requires.
+- **CSV injection:** cells starting with `= + - @`, tab or CR are prefixed with `'`, so spreadsheet apps treat them as text, since audit values can come from outside (for example alarm data). This is unit tested.
+- Entries with no team (login events) are visible to nobody in the app. They are for operators with database access.
+
 ## 2026-11-08: M5-B OIDC sign-in for production
 
 - **Library:** `openid-client` 6.8.9 (MIT, OpenID-certified; depends only on `jose` and `oauth4webapi` by the same maintainer). Reviewed before adding. Hand-rolled OIDC is a classic source of security bugs.

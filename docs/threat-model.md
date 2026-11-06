@@ -49,7 +49,8 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | --- | --- | --- |
 | Cross-team read or write | RLS enabled and forced on every team table, closed by default. User context set with `SET LOCAL` per transaction | Without context, 0 rows. Cross-team query returns 0 rows |
 | Viewer writes | RLS write policies exclude Viewers | Viewer UPDATE fails |
-| Audit tampering | The app role gets INSERT only on `audit_log` | UPDATE/DELETE on `audit_log` fails |
+| Audit tampering | INSERT only for app roles (admins may also read their teams' rows); triggers block UPDATE/DELETE/TRUNCATE for everyone | DB tests |
+| Spreadsheet formula injection via audit export | Cells starting with = + - @ tab CR prefixed with ' | Unit test |
 | Ingestion path over-privileged | `app_ingest` has its own minimal grants and policies: no access to users, memberships or audit reads, cannot resolve or delete | DB tests (passing) |
 | Duplicate incidents from races or retries | Partial unique index per open fingerprint. Unique `(integration_id, external_id)` | DB tests (passing) |
 | Signing secrets in the database | Only a Secrets Manager reference is stored | DB test on columns (passing) |

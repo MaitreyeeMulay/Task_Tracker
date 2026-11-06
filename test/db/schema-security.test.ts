@@ -84,10 +84,13 @@ describe("audit_log is append-only", () => {
     });
   });
 
-  it("does not let the app role read, update or delete", async () => {
+  // Since 0011 team admins may read their teams' entries (audit-export.test.ts);
+  // without an admin context the app role reads nothing, and it can never change rows.
+  it("does not let the app role update or delete, and reads nothing without an admin context", async () => {
     await inRollback(client, async () => {
       await seedThenActAsApp();
-      for (const sql of ["SELECT * FROM audit_log", "UPDATE audit_log SET action = 'x'", "DELETE FROM audit_log"]) {
+      expect((await client.query("SELECT count(*)::int AS n FROM audit_log")).rows[0]).toEqual({ n: 0 });
+      for (const sql of ["UPDATE audit_log SET action = 'x'", "DELETE FROM audit_log"]) {
         expect((await dbError(client, sql))?.code, sql).toBe(INSUFFICIENT_PRIVILEGE);
       }
     });
