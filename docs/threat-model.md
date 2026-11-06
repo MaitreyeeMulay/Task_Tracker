@@ -49,7 +49,8 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | --- | --- | --- |
 | Cross-team read or write | RLS enabled and forced on every team table, closed by default. User context set with `SET LOCAL` per transaction | Without context, 0 rows. Cross-team query returns 0 rows |
 | Viewer writes | RLS write policies exclude Viewers | Viewer UPDATE fails |
-| Audit tampering | The app role gets INSERT only on `audit_log` | UPDATE/DELETE on `audit_log` fails |
+| Audit tampering | INSERT only for app roles (admins may also read their teams' rows); triggers block UPDATE/DELETE/TRUNCATE for everyone | DB tests |
+| Spreadsheet formula injection via audit export | Cells starting with = + - @ tab CR prefixed with ' | Unit test |
 | Ingestion path over-privileged | `app_ingest` has its own minimal grants and policies: no access to users, memberships or audit reads, cannot resolve or delete | DB tests (passing) |
 | Duplicate incidents from races or retries | Partial unique index per open fingerprint. Unique `(integration_id, external_id)` | DB tests (passing) |
 | Signing secrets in the database | Only a Secrets Manager reference is stored | DB test on columns (passing) |
@@ -89,6 +90,8 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | Over-privileged token | `permissions: contents: read` by default | Review |
 | Vulnerable dependency | OSV-Scanner, Dependabot | Fails on critical |
 | Risky IaC | Checkov, tflint | Fails on high |
+| Vulnerable OS or library packages in the image | Trivy image scan on every build; SBOM per image for later lookups | Fails on a critical with a fix |
+| Unsigned or tampered image deployed | Image signing and "deploy only signed" | **Not done** (M6) |
 | Fork pull request steals secrets | No secrets in PR workflows. `pull_request_target` is banned by a unit test. `persist-credentials: false` on every checkout | Unit test (passing) |
 | Workflow injection | CodeQL `actions` analysis on every PR. No untrusted `${{ }}` inside `run:` | CodeQL (passing on `main`) |
 | Unpinned action or image | Unit test fails on any action not pinned to a SHA or any Docker image without a digest | Unit test (passing) |

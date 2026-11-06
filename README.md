@@ -2,7 +2,7 @@
 
 Turns monitoring alerts into incidents, guides responders with runbooks and keeps an audit trail. It is built to show DevSecOps practice end to end. See [`SPEC.md`](SPEC.md).
 
-**Status:** M0 to M4 done. M5 and M7 in progress; M6 (AWS deployment) planned (see [`docs/decisions.md`](docs/decisions.md)).
+**Status:** M0 to M5 done. M7 in progress; M6 (AWS deployment) planned (see [`docs/decisions.md`](docs/decisions.md)).
 
 ## Run it locally
 
@@ -76,7 +76,7 @@ Every push to `main` and every pull request runs two workflows. All third-party 
 | --- | --- | --- |
 | Typecheck, lint, unit tests | `tsc`, ESLint (zero warnings), Vitest | any error |
 | Database tests (Postgres) | RLS and audit tests on a Postgres 17 service container | any failure |
-| Docker image build | the production image builds | build error |
+| Docker image build | the production image builds; **Trivy** scans it; **Syft** writes a CycloneDX SBOM, published as a build artifact with the scan report | build error, or a critical vulnerability with a fix available |
 | Terraform | `fmt -check`, `validate`, `terraform test`, tflint, Checkov | any finding |
 | Secret scan | gitleaks over the **full git history** (binary pinned by SHA-256) | any finding |
 | Dependency audit | `npm audit --audit-level=critical` | critical |
@@ -100,7 +100,8 @@ A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinne
 | M2 Incidents and team scoping | Done | Login, incident list and detail, status changes, timeline; RLS proves team isolation |
 | M3 Response checklists | Done | Living checklists: findings per step, "what fixed it" can be proposed as a step (linked to the incident) and reviewed; editable in the app |
 | M4 SLA timers, escalation, notifications | Done | Worker with durable timers and an outbox; crash tests prove nothing is lost or sent twice; email via stub until M6 |
-| M5 to M6 | In progress / planned | |
+| M5 Security hardening | Done | Password login with lockout, OIDC, audit log + export, security headers, CSRF checks, rate limits, image scan + SBOM |
+| M6 Live AWS deployment | Planned | Waits on the owner's AWS account (see docs/decisions.md) |
 
 ## Security
 

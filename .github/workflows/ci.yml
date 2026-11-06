@@ -70,6 +70,38 @@ jobs:
         with:
           persist-credentials: false
       - run: docker build --pull -t incident-tracker:${{ github.sha }} .
+      - name: Install Trivy 0.76.2 and Syft 1.57.0 (checksum pinned)
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl -sSfL --max-time 120 -o trivy.tar.gz \
+            https://github.com/aquasecurity/trivy/releases/download/v0.76.2/trivy_0.76.2_Linux-64bit.tar.gz
+          echo "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf  trivy.tar.gz" | sha256sum -c -
+          tar -xzf trivy.tar.gz trivy
+          curl -sSfL --max-time 120 -o syft.tar.gz \
+            https://github.com/anchore/syft/releases/download/v1.57.0/syft_1.57.0_linux_amd64.tar.gz
+          echo "9c077a7d43029b3b13e98a8db720661e700c4d58db6352153a06395ae4a2a704  syft.tar.gz" | sha256sum -c -
+          tar -xzf syft.tar.gz syft
+      # Gate (SPEC): fail on a critical vulnerability that has a fix available.
+      - name: Image scan (Trivy)
+        run: >-
+          ${{ runner.temp }}/trivy image --no-progress --severity CRITICAL --ignore-unfixed --exit-code 1
+          incident-tracker:${{ github.sha }}
+      - name: Image scan report (all severities, informational)
+        if: always()
+        run: >-
+          ${{ runner.temp }}/trivy image --no-progress --severity HIGH,CRITICAL --exit-code 0 --format table
+          incident-tracker:${{ github.sha }} | tee trivy-report.txt
+      - name: SBOM (Syft, CycloneDX)
+        run: ${{ runner.temp }}/syft incident-tracker:${{ github.sha }} -o cyclonedx-json=sbom.cdx.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: image-sbom-and-scan-${{ github.sha }}
+          path: |
+            sbom.cdx.json
+            trivy-report.txt
+          if-no-files-found: warn
+          retention-days: 30
 
   terraform:
     name: Terraform fmt, validate, test, tflint, Checkov
