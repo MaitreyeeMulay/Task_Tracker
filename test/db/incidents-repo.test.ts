@@ -46,6 +46,7 @@ describe("listIncidents", () => {
       expect(await listIncidents(client)).toEqual([
         {
           id: w.mine,
+          caseNumber: expect.stringMatching(/^INC-\d+$/),
           title: "Checkout errors",
           severity: "SEV2",
           status: "triggered",

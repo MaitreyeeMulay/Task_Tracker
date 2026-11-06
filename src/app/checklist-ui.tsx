@@ -48,13 +48,14 @@ export function FixedCount({ count }: { count: number }) {
 }
 
 /** "Added from incident X by Alice" — where a step came from. */
-export function Provenance({ step }: { step: Pick<ChecklistStep, "sourceIncidentId" | "sourceIncidentTitle" | "addedBy"> }) {
+export function Provenance({ step }: { step: Pick<ChecklistStep, "sourceIncidentId" | "sourceIncidentTitle" | "sourceCaseNumber" | "addedBy"> }) {
   if (!step.sourceIncidentId && !step.addedBy) return null;
   return (
     <span className="muted small">
       {step.sourceIncidentId ? (
         <>
-          learned from <Link href={`/incidents/${step.sourceIncidentId}`}>{step.sourceIncidentTitle ?? "an incident"}</Link>
+          learned from <Link href={`/incidents/${step.sourceIncidentId}`}>{step.sourceCaseNumber ?? "an incident"}</Link>
+          {step.sourceIncidentTitle ? ` (${step.sourceIncidentTitle})` : ""}
         </>
       ) : (
         "added"

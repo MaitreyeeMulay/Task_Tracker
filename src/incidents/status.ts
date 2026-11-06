@@ -31,3 +31,16 @@ export function planTransition(from: IncidentStatus, to: string, now: Date): Tra
   }
   return { ok: true, status: to, set: { [TIMESTAMP_FOR[to]]: now } };
 }
+
+
+/**
+ * Reopening is the one way back: only from resolved, to acknowledged (a person
+ * reopened it, so someone is on it). Later timestamps are cleared.
+ */
+export function planReopen(
+  from: IncidentStatus,
+  now: Date,
+): { ok: true; status: IncidentStatus; set: { acknowledged_at: Date; mitigated_at: null; resolved_at: null } } | { ok: false; error: string } {
+  if (from !== "resolved") return { ok: false, error: "not_resolved" };
+  return { ok: true, status: "acknowledged", set: { acknowledged_at: now, mitigated_at: null, resolved_at: null } };
+}
