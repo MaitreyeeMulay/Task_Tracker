@@ -41,6 +41,12 @@ export function ChecklistProse({ body }: { body: string }) {
   );
 }
 
+/** "Fixed 3 incidents" — how often this step was what resolved an incident. */
+export function FixedCount({ count }: { count: number }) {
+  if (count === 0) return null;
+  return <span className="badge">fixed {count} incident{count === 1 ? "" : "s"}</span>;
+}
+
 /** "Added from incident X by Alice" — where a step came from. */
 export function Provenance({ step }: { step: Pick<ChecklistStep, "sourceIncidentId" | "sourceIncidentTitle" | "addedBy"> }) {
   if (!step.sourceIncidentId && !step.addedBy) return null;

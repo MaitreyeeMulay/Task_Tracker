@@ -4,7 +4,7 @@ import { requireUser } from "@/auth/current-user";
 import { withUser } from "@/db/with-user";
 import { getPool } from "@/lib/db";
 import { getChecklistRun } from "@/runbooks/repo";
-import { ChecklistProse, Provenance } from "../../../../checklist-ui";
+import { ChecklistProse, FixedCount, Provenance } from "../../../../checklist-ui";
 import { completeStepAction, proposeStepAction, reviewProposalAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +65,7 @@ export default async function ChecklistRunPage({
             <div className="row">
               <span aria-hidden="true">{done ? "✓" : "○"}</span>
               <span className="grow">{step.text}</span>
+              <FixedCount count={step.fixedCount} />
               <Provenance step={step} />
             </div>
             {done ? (

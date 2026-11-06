@@ -4,7 +4,7 @@ import { requireUser } from "@/auth/current-user";
 import { withUser } from "@/db/with-user";
 import { getPool } from "@/lib/db";
 import { getChecklist } from "@/runbooks/repo";
-import { ChecklistProse, Provenance } from "../../checklist-ui";
+import { ChecklistProse, FixedCount, Provenance } from "../../checklist-ui";
 import { addStepAction, retireStepAction, reviewAction, updateChecklistAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +46,7 @@ export default async function ChecklistPage({
         {doc.steps.map((step) => (
           <li key={step.id} className="card row">
             <span className="grow">{step.text}</span>
+            <FixedCount count={step.fixedCount} />
             <Provenance step={step} />
             {doc.canWrite ? (
               <form action={retireStepAction}>

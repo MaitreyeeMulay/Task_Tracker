@@ -26,6 +26,8 @@ export interface IncidentDetail extends IncidentSummary {
   canWrite: boolean;
   /** "What fixed it", recorded when resolving. */
   resolutionNote: string | null;
+  /** checklist_step, other_fix or self_resolved (null if resolved before 0006, or not resolved). */
+  resolutionKind: string | null;
   timeline: TimelineEntry[];
 }
 
@@ -61,8 +63,8 @@ function describe(kind: string, data: Record<string, unknown>): string | null {
 
 export async function getIncident(db: ClientBase, id: string): Promise<IncidentDetail | null> {
   if (!UUID.test(id)) return null;
-  const { rows } = await db.query<IncidentSummary & { canWrite: boolean; resolutionNote: string | null }>(
-    `SELECT ${SUMMARY_COLUMNS}, i.resolution_note AS "resolutionNote",
+  const { rows } = await db.query<IncidentSummary & { canWrite: boolean; resolutionNote: string | null; resolutionKind: string | null }>(
+    `SELECT ${SUMMARY_COLUMNS}, i.resolution_note AS "resolutionNote", i.resolution_kind AS "resolutionKind",
        EXISTS (SELECT 1 FROM memberships m
                WHERE m.team_id = i.team_id AND m.user_id = app_user_id()
                  AND m.role IN ('admin', 'responder')) AS "canWrite"

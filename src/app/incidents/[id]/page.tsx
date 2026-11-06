@@ -6,7 +6,8 @@ import { getIncident } from "@/incidents/repo";
 import { listChecklistsForIncident } from "@/runbooks/repo";
 import { allowedNextStatuses } from "@/incidents/status";
 import { getPool } from "@/lib/db";
-import { changeStatusAction } from "./actions";
+import { changeStatusAction, resolveAction } from "./actions";
+import { listCompletedSteps } from "@/incidents/resolve";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,10 @@ const ERRORS: Record<string, string> = {
   forbidden: "You can view this incident but not change it.",
   conflict: "Someone else changed this incident first. Check the latest status and try again.",
   not_found: "Incident not found.",
-  proposal_failed: "Nothing was changed: the fix could not be proposed as a checklist step (it must be 1–1000 characters).",
+  invalid_text: "Please describe what fixed it (up to 1000 characters).",
+  step_not_completed: "Pick a checklist step that was completed on this incident.",
+  choose_outcome: "Choose what resolved it.",
+  use_resolve: "Use the Resolve form.",
 };
 
 const ACTION_LABEL: Record<string, string> = {
@@ -41,9 +45,10 @@ export default async function IncidentPage({
 }) {
   const [{ id }, { error }] = await Promise.all([params, searchParams]);
   const user = await requireUser();
-  const { incident, checklists } = await withUser(getPool(), user.id, async (db) => ({
+  const { incident, checklists, completedSteps } = await withUser(getPool(), user.id, async (db) => ({
     incident: await getIncident(db, id),
     checklists: await listChecklistsForIncident(db, id),
+    completedSteps: await listCompletedSteps(db, id),
   }));
   if (!incident) notFound();
 
@@ -66,9 +71,16 @@ export default async function IncidentPage({
       </p>
 
       {message ? <p role="alert" className="error">{message}</p> : null}
-      {incident.resolutionNote ? (
+      {incident.status === "resolved" && (incident.resolutionKind || incident.resolutionNote) ? (
         <p className="card">
-          <strong>What fixed it:</strong> {incident.resolutionNote}
+          <strong>
+            {incident.resolutionKind === "checklist_step"
+              ? "Resolved by checklist step:"
+              : incident.resolutionKind === "self_resolved"
+                ? "Recovered on its own / false alarm"
+                : "Resolved by something else:"}
+          </strong>{" "}
+          {incident.resolutionNote}
         </p>
       ) : null}
 
@@ -87,26 +99,55 @@ export default async function IncidentPage({
       ) : null}
 
       {next.includes("resolved") ? (
-        <form action={changeStatusAction} className="card stack">
+        <form action={resolveAction} className="card stack">
           {hidden}
-          <input type="hidden" name="to" value="resolved" />
-          <label className="stack">
-            <strong>Resolve: what fixed it?</strong>
-            <textarea name="resolutionNote" rows={2} maxLength={1000} placeholder="e.g. Restarted the payment worker" />
-          </label>
-          {checklists.length > 0 ? (
-            <label className="row">
-              <span>Propose it as a step for</span>
-              <select name="proposeTo" defaultValue="">
-                <option value="">— don&apos;t propose —</option>
-                {checklists.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title}
+          <strong>Resolve: what resolved it?</strong>
+
+          {completedSteps.length > 0 ? (
+            <fieldset className="stack">
+              <label className="row">
+                <input type="radio" name="outcome" value="checklist_step" required />
+                <span>A checklist step fixed it</span>
+              </label>
+              <select name="stepId" defaultValue={completedSteps.at(-1)?.stepId}>
+                {completedSteps.map((s) => (
+                  <option key={s.stepId} value={s.stepId}>
+                    {s.text} ({s.checklistTitle})
                   </option>
                 ))}
               </select>
-            </label>
+            </fieldset>
           ) : null}
+
+          <fieldset className="stack">
+            <label className="row">
+              <input type="radio" name="outcome" value="other_fix" required />
+              <span>Something else fixed it</span>
+            </label>
+            <textarea name="otherFix" rows={2} maxLength={1000} placeholder="e.g. Restarted the payment worker" />
+            {checklists.length > 0 ? (
+              <label className="row">
+                <span>Add it to a checklist as a proposed step:</span>
+                <select name="proposeTo" defaultValue={checklists[0]?.id ?? ""}>
+                  <option value="">— don&apos;t add —</option>
+                  {checklists.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </fieldset>
+
+          <fieldset className="stack">
+            <label className="row">
+              <input type="radio" name="outcome" value="self_resolved" required />
+              <span>It recovered on its own / false alarm</span>
+            </label>
+            <input name="selfNote" maxLength={1000} placeholder="Note (optional)" />
+          </fieldset>
+
           <div>
             <button type="submit">Resolve</button>
           </div>
