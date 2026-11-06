@@ -2,7 +2,7 @@
 
 Turns monitoring alerts into incidents, guides responders with runbooks and keeps an audit trail. It is built to show DevSecOps practice end to end. See [`SPEC.md`](SPEC.md).
 
-**Status:** M0, M1, M2 and M3 done. M4 to M6 are designed but not built (see [`docs/decisions.md`](docs/decisions.md)).
+**Status:** M0 to M4 done. M5 and M7 in progress; M6 (AWS deployment) planned (see [`docs/decisions.md`](docs/decisions.md)).
 
 ## Run it locally
 
@@ -48,9 +48,10 @@ npm run test:db   # needs the compose db running: docker compose up -d db
 ```sh
 npm run migrate && npm run seed   # sample teams, users and incidents (dev only)
 npm run dev                       # then open http://localhost:3000
+npm run worker                    # SLA timers, escalation and email (stub); Ctrl+C to stop
 ```
 
-Sign in with `alice@example.test` (Responder, Payments), `bob@example.test` (Viewer, Payments) or `carol@example.test` (Responder, Search). Each person sees only their own team's incidents. Alice can acknowledge, mitigate and resolve; Bob can only look.
+Sign in with `dana@example.test` (Admin, Payments: gets escalations, reviews flagged emails), `alice@example.test` (Responder, Payments), `bob@example.test` (Viewer, Payments) or `carol@example.test` (Responder, Search). Each person sees only their own team's incidents. Alice can acknowledge, mitigate and resolve; Bob can only look.
 Open an incident and pick a **response checklist** to tick off steps (with what you found); each one lands on the timeline. When resolving, answer **what resolved it**: a checklist step (it then shows "fixed N incidents"), something else (proposed as a new step, accepted under **Checklists**), or it recovered on its own. Every incident has a case number (INC-1001…); a resolved one can be **reopened** with a reason. Requires `DEV_LOGIN_ENABLED=true` and a `SESSION_SECRET` in `.env` (see `.env.example`).
 
 ### Infrastructure (Terraform)
@@ -98,7 +99,8 @@ A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinne
 | M1 Ingestion | Done | `POST /api/ingest/sns/{id}`: verified CloudWatch alarms open incidents, duplicates join them |
 | M2 Incidents and team scoping | Done | Login, incident list and detail, status changes, timeline; RLS proves team isolation |
 | M3 Response checklists | Done | Living checklists: findings per step, "what fixed it" can be proposed as a step (linked to the incident) and reviewed; editable in the app |
-| M4 to M6 | Designed, not built | |
+| M4 SLA timers, escalation, notifications | Done | Worker with durable timers and an outbox; crash tests prove nothing is lost or sent twice; email via stub until M6 |
+| M5 to M6 | In progress / planned | |
 
 ## Security
 

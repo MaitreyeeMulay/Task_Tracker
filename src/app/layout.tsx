@@ -17,6 +17,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <nav className="row">
               <Link href="/incidents">Incidents</Link>
               <Link href="/checklists">Checklists</Link>
+              <Link href="/notifications">Review</Link>
             </nav>
           ) : null}
           {user ? (

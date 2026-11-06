@@ -63,7 +63,7 @@ function describe(kind: string, data: Record<string, unknown>): string | null {
     const finding = typeof data.finding === "string" ? ` — ${data.finding}` : "";
     return `${data.runbook_title}: ✓ ${data.step_text}${finding}`;
   }
-  if (kind === "note" && typeof data.text === "string") return data.text;
+  if ((kind === "note" || kind === "escalated" || kind === "sla_breached") && typeof data.text === "string") return data.text;
   return null;
 }
 

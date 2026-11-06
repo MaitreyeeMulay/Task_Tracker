@@ -12,7 +12,8 @@ export default function LoginPage() {
         <>
           <LoginForm />
           <p className="muted">
-            Development login (no password). Seeded users: <code>alice@example.test</code> (Responder, Payments),{" "}
+            Development login (no password). Seeded users: <code>dana@example.test</code> (Admin, Payments),{" "}
+            <code>alice@example.test</code> (Responder, Payments),{" "}
             <code>bob@example.test</code> (Viewer, Payments), <code>carol@example.test</code> (Responder, Search).
           </p>
         </>

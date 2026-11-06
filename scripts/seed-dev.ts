@@ -17,6 +17,7 @@ async function main(): Promise<void> {
       await seedCore(client);
     }
     await seedRunbooks(client);
+    await seedAdmin(client);
   } finally {
     await client.end();
   }
@@ -65,6 +66,17 @@ kubectl rollout undo deployment/checkout-api
 `,
   },
 ];
+
+// M4: an admin for Payments, who receives escalations and reviews flagged emails.
+async function seedAdmin(client: pg.Client): Promise<void> {
+  const result = await client.query(
+    `WITH u AS (INSERT INTO users (email, display_name) SELECT 'dana@example.test', 'Dana'
+                WHERE NOT EXISTS (SELECT 1 FROM users WHERE lower(email) = 'dana@example.test') RETURNING id)
+     INSERT INTO memberships (team_id, user_id, role)
+     SELECT t.id, u.id, 'admin' FROM u, teams t WHERE t.name = 'Payments'`,
+  );
+  console.log(JSON.stringify({ event: result.rowCount ? "seed_admin_done" : "seed_admin_skipped" }));
+}
 
 async function seedRunbooks(client: pg.Client): Promise<void> {
   const count = (await client.query<{ n: number }>("SELECT count(*)::int AS n FROM runbooks")).rows[0]?.n ?? 0;

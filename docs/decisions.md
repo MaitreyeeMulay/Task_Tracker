@@ -2,6 +2,20 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-08: M4 SLA timers, escalation and notification outbox
+
+- **SLA targets** live in `sla_targets` (SEV1 5 min / 1 h, SEV2 15 min / 4 h, SEV3 1 h / 24 h, SEV4 4 h / 72 h). These are defaults chosen by Claude and changeable with SQL; the spec only says "per severity".
+- **Durable timers:** wake-at rows in `timers`, created and cancelled by a trigger on `incidents`, so no code path (ingestion, status change, reopen) can forget them. Reopening schedules a fresh resolve target. The trigger runs with the caller's rights, and each role has only the timer rights it needs.
+- **Escalation:** a missed acknowledgement notifies the team's **admins** (level 2) and adds an "escalated" timeline entry. With no admins it falls back to responders rather than telling nobody. A missed resolve target notifies responders and admins. A new incident notifies responders and admins. Viewers are never paged.
+- **Outbox, exactly once:**
+  - A timer fires in one transaction (`FOR UPDATE SKIP LOCKED`). A crash before COMMIT rolls back, and the timer fires after restart. `UNIQUE (incident_id, kind, level, recipient)` makes duplicate messages impossible to create.
+  - Sending: the claim (`status = 'sending'`) is committed **before** the provider call. A message still "sending" after the 60-second lease means its worker died mid-send. It is marked **needs_review** and **never resent automatically** (CLAUDE.md). An admin decides on the **Review** page: it arrived / send again / dismiss. Every decision is audited.
+  - Retries: only a definite, temporary rejection is retried (after 1, 5 and 25 minutes, 4 attempts at most). An ambiguous result (timeout, exception) goes to review. A permanent rejection fails.
+- **Proof:** `test/db/worker.test.ts` starts a real worker process and SIGKILLs it (1) inside the timer transaction and (2) mid-send, then restarts. Nothing is lost, and nothing is sent twice.
+- **Email provider:** a stub behind the `EmailProvider` interface, which logs ids only. The real AWS SES provider comes with M6, since it needs an AWS account. That is marked untested.
+- **Worker process:** `npm run worker` (loop) or `npm run worker -- --once`. It writes a heartbeat for the M6 "worker silent" alert. Several copies can run safely.
+- **Outbox rows hold recipient email addresses** (needed to send). Admins can see addresses for their own team's messages; logs never contain them.
+
 ## 2026-11-07: Case numbers and reopening (owner request)
 
 - **Case numbers:** `incidents.number` is an identity column starting at 1001, shown as `INC-1001`. The database assigns it (unique, never reused), including for incidents opened by alerts. Existing rows were numbered by the migration. It's shown on the list, the incident page, checklist pages and step provenance ("learned from INC-1004"). `/incidents/INC-1004` also works, and RLS still applies, so another team's number reads as not found.

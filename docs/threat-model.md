@@ -90,6 +90,16 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | Provider binary swapped | Exact provider version plus committed lock file hashes | `terraform init` verifies the hashes |
 | Surprise cloud bill | Budget alert at 50%, 80%, 100% and forecast 100% | `terraform test` (passing). The real apply is untested |
 
+### Worker and notifications (M4)
+
+| Threat | Mitigation | Test |
+| --- | --- | --- |
+| Lost notification (crash) | Timer fire and outbox write share one transaction; durable timers | Crash test: SIGKILL mid-timer (passing) |
+| Duplicate notification (crash or retry) | Unique outbox key; claim committed before send; stale "sending" goes to human review, never auto-resent | Crash test: SIGKILL mid-send (passing) |
+| Worker over-privileged | `app_worker` role: reads what it needs to address messages, writes only timers/outbox/escalation events | DB tests |
+| Email addresses leaked in logs | Logs carry notification and incident ids only | Code review; stub logs ids only |
+| Alert spam to the wrong people | Recipients from the incident's own team only; viewers never paged | DB test |
+
 ## Security acceptance criteria per milestone
 
 - **M0:** CI gates run and fail on planted issues (gitleaks proven). RLS is closed by default.
