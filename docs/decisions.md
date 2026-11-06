@@ -2,6 +2,14 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-08: M5-D image scan and SBOM in CI
+
+- **Trivy 0.76.2** scans every built image. The gate fails on a **critical vulnerability that has a fix** (`--severity CRITICAL --ignore-unfixed`), which is the SPEC threshold. A second, informational pass reports high and critical findings, and is uploaded.
+- **Syft 1.57.0** writes a **CycloneDX SBOM** for every image, published with the scan report as a 30-day build artifact.
+- Both are release binaries **pinned by SHA-256**, not third-party actions (same reasoning as gitleaks). `actions/upload-artifact` is pinned to a commit SHA.
+- **Guard added:** a unit test fails if any required status-check job name disappears from the workflows. Renaming one would block every PR under the `protect-main` ruleset, and I nearly did exactly that while adding these steps. The test was shown failing on that rename first.
+- **Not yet done** (designed for M6): image signing (cosign or GitHub attestations) and "deploy only signed images", since they need the registry and the deploy pipeline.
+
 ## 2026-11-08: M5-C audit log view and export
 
 - Team **admins** can read their own teams' audit entries (`0011`: SELECT plus an `app_is_admin` policy). The log stays append-only: no UPDATE or DELETE grants, and the triggers from 0001 block them for everyone.

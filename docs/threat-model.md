@@ -90,6 +90,8 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | Over-privileged token | `permissions: contents: read` by default | Review |
 | Vulnerable dependency | OSV-Scanner, Dependabot | Fails on critical |
 | Risky IaC | Checkov, tflint | Fails on high |
+| Vulnerable OS or library packages in the image | Trivy image scan on every build; SBOM per image for later lookups | Fails on a critical with a fix |
+| Unsigned or tampered image deployed | Image signing and "deploy only signed" | **Not done** (M6) |
 | Fork pull request steals secrets | No secrets in PR workflows. `pull_request_target` is banned by a unit test. `persist-credentials: false` on every checkout | Unit test (passing) |
 | Workflow injection | CodeQL `actions` analysis on every PR. No untrusted `${{ }}` inside `run:` | CodeQL (passing on `main`) |
 | Unpinned action or image | Unit test fails on any action not pinned to a SHA or any Docker image without a digest | Unit test (passing) |
