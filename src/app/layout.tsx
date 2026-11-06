@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { getCurrentUser } from "@/auth/current-user";
 import { logout } from "./login/actions";
@@ -12,6 +13,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body>
         <header className="topbar">
           <strong>Incident tracker</strong>
+          {user ? (
+            <nav className="row">
+              <Link href="/incidents">Incidents</Link>
+              <Link href="/checklists">Checklists</Link>
+            </nav>
+          ) : null}
           {user ? (
             <form action={logout} className="row">
               <span className="muted">{user.name}</span>

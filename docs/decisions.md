@@ -2,6 +2,18 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-06: Runbooks become living "response checklists" (owner request)
+
+The owner pointed out that "runbook" often means an executed workflow, and that a team should be able to record what actually helped. Agreed changes and the reasoning behind them:
+
+- **Name:** "Response checklist" in everything users see (UI, docs). The table stays `runbooks`, because renaming it would break the previous code version, which `CLAUDE.md` forbids. Code types keep the old module path (`src/runbooks/`).
+- **Steps became rows with stable ids** (`checklist_steps`). Before this, completions pointed at a step's *position* in the Markdown, so editing the document would have made old completions point at the wrong step. Steps are **retired, never deleted**, so history stays correct. Migration 0005 backfilled steps and completions from the old data; the old tables are kept for the previous code version.
+- **Findings:** each completed step can carry a note ("error rate 12%, deploy #482"), shown on the checklist and the incident timeline.
+- **Learning loop with review:** resolving asks "what fixed it?" (stored as `incidents.resolution_note` and on the timeline). It can be **proposed** as a new step, linked to the incident. A team responder or admin then accepts or rejects it, and accepted steps show "learned from <incident> by <person>". Nothing changes the checklist automatically mid-incident, because edits made under pressure tend to add bloat and untested steps.
+- **Editing in the app:** create checklists for your team's services, edit the document, add or retire steps, and review proposals. RLS limits all of this to the team's admins and responders.
+- **Not built yet** (noted for later): per-step "helped / didn't help" statistics, and flagging repeated alarms that have no checklist (cheap, since alarms are fingerprinted).
+- **Mistake during this work:** the first draft of migration 0005 named a column `position`, which is a reserved word in that SQL context. The migration failed and was rolled back, so nothing was recorded. A dry run inside a rolled-back transaction showed the real error, and the column is now `sort_order`.
+
 ## 2026-11-01: M3 runbooks (re-added to scope by the owner after M2 worked)
 
 - **Markdown without HTML:** a small in-repo reader (`src/runbooks/markdown.ts`) turns runbook Markdown into plain-text blocks that React renders as text. No HTML is ever produced, so script injection isn't possible, and there's no Markdown/sanitizer dependency. A test confirms `<script>` and `<img onerror>` stay literal text. It supports headings, paragraphs, lists, code blocks and `- [ ]` checklist steps (at most 100).

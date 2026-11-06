@@ -1,0 +1,59 @@
+import Link from "next/link";
+import { parseRunbook, type Block } from "@/runbooks/markdown";
+import type { ChecklistStep } from "@/runbooks/repo";
+
+// Shared pieces for response checklists. Everything renders as React text:
+// checklist content can never become HTML.
+
+function ProseBlock({ block }: { block: Block }) {
+  switch (block.type) {
+    case "heading":
+      return block.level === 1 ? <h2>{block.text}</h2> : <h3>{block.text}</h3>;
+    case "paragraph":
+      return <p>{block.text}</p>;
+    case "list":
+      return (
+        <ul>
+          {block.items.map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
+        </ul>
+      );
+    case "code":
+      return (
+        <pre className="card">
+          <code>{block.text}</code>
+        </pre>
+      );
+    case "step":
+      return null; // steps live in checklist_steps, not in the text
+  }
+}
+
+/** The document part of a checklist (headings, notes, commands). */
+export function ChecklistProse({ body }: { body: string }) {
+  return (
+    <>
+      {parseRunbook(body).blocks.map((block, i) => (
+        <ProseBlock key={i} block={block} />
+      ))}
+    </>
+  );
+}
+
+/** "Added from incident X by Alice" — where a step came from. */
+export function Provenance({ step }: { step: Pick<ChecklistStep, "sourceIncidentId" | "sourceIncidentTitle" | "addedBy"> }) {
+  if (!step.sourceIncidentId && !step.addedBy) return null;
+  return (
+    <span className="muted small">
+      {step.sourceIncidentId ? (
+        <>
+          learned from <Link href={`/incidents/${step.sourceIncidentId}`}>{step.sourceIncidentTitle ?? "an incident"}</Link>
+        </>
+      ) : (
+        "added"
+      )}
+      {step.addedBy ? ` by ${step.addedBy}` : ""}
+    </span>
+  );
+}
