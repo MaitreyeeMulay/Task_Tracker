@@ -15,6 +15,7 @@ const ERRORS: Record<string, string> = {
   invalid_step: "That step no longer exists.",
   invalid_text: "Please enter between 1 and 1000 characters.",
   not_found: "Not found.",
+  incident_resolved: "This incident is already resolved, so steps can no longer be completed.",
 };
 
 const fmt = (d: Date) => `${d.toISOString().slice(11, 16)} UTC`;
@@ -33,6 +34,10 @@ export default async function ChecklistRunPage({
 
   const { incident, checklist, steps, proposed, completed } = view;
   const doneCount = steps.filter((s) => completed[s.id]).length;
+  const isOpen = incident.status !== "resolved";
+  // Ticking steps is work on an open incident; it never resolves anything.
+  const canTick = incident.canWrite && isOpen;
+  const allDone = steps.length > 0 && doneCount === steps.length;
   const hidden = (
     <>
       <input type="hidden" name="incidentId" value={incident.id} />
@@ -53,6 +58,16 @@ export default async function ChecklistRunPage({
         {doneCount} of {steps.length} steps done{incident.canWrite ? "" : " · read-only"}
       </p>
       {error ? <p role="alert" className="error">{ERRORS[error] ?? "That change is not allowed."}</p> : null}
+      {!isOpen ? (
+        <p className="card">
+          This incident is <strong>resolved</strong>. The checklist is shown as it was worked; steps can no longer be completed.
+        </p>
+      ) : allDone ? (
+        <p className="card">
+          All steps are done, but the incident is <strong>still open</strong>. If the problem persists, add what you try next as a step
+          below. Resolve the incident from <Link href={`/incidents/${incident.id}`}>its page</Link> once it is actually fixed.
+        </p>
+      ) : null}
 
       <ChecklistProse body={checklist.body} />
 
@@ -73,7 +88,7 @@ export default async function ChecklistRunPage({
                 {done.by} · {fmt(done.at)}
                 {done.finding ? <> · Found: {done.finding}</> : null}
               </p>
-            ) : incident.canWrite ? (
+            ) : canTick ? (
               <form action={completeStepAction} className="row">
                 {hidden}
                 <input type="hidden" name="stepId" value={step.id} />
