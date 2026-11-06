@@ -15,7 +15,8 @@
     "test": "vitest run --dir src",
     "test:db": "vitest run --config vitest.db.config.ts",
     "migrate": "node --env-file-if-exists=.env scripts/migrate.ts",
-    "seed": "node --env-file-if-exists=.env scripts/seed-dev.ts"
+    "seed": "node --env-file-if-exists=.env scripts/seed-dev.ts",
+    "worker": "node --env-file-if-exists=.env scripts/worker.ts"
   },
   "dependencies": {
     "next": "16.4.3",

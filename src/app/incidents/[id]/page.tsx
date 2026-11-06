@@ -8,6 +8,7 @@ import { allowedNextStatuses } from "@/incidents/status";
 import { getPool } from "@/lib/db";
 import { changeStatusAction, reopenAction, resolveAction } from "./actions";
 import { listCompletedSteps } from "@/incidents/resolve";
+import { getSla } from "@/notify/review";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,8 @@ const KIND_LABEL: Record<string, string> = {
   status_changed: "status changed",
   runbook_step: "checklist step",
   note: "note",
+  escalated: "escalated",
+  sla_breached: "SLA missed",
 };
 
 const fmt = (d: Date) => `${d.toISOString().slice(0, 19).replace("T", " ")} UTC`;
@@ -54,10 +57,12 @@ export default async function IncidentPage({
       incident: found,
       checklists: await listChecklistsForIncident(db, found.id),
       completedSteps: await listCompletedSteps(db, found.id),
+      sla: await getSla(db, found.id),
     };
   });
   if (!data) notFound();
-  const { incident, checklists, completedSteps } = data;
+  const { incident, checklists, completedSteps, sla } = data;
+  const now = new Date();
 
   const next = incident.canWrite ? allowedNextStatuses(incident.status) : [];
   const message =
@@ -84,6 +89,21 @@ export default async function IncidentPage({
           {incident.service} · {incident.alertCount} alert{incident.alertCount === 1 ? "" : "s"} · opened {fmt(incident.openedAt)}
         </span>
       </p>
+      {incident.status !== "resolved" && (sla.ackDue || sla.resolveDue) ? (
+        <p className="row small">
+          {incident.status === "triggered" && sla.ackDue ? (
+            <span className={`badge ${sla.ackDue < now ? "sev-sev1" : ""}`}>
+              {sla.ackDue < now ? "Acknowledge overdue" : `Acknowledge by ${fmt(sla.ackDue)}`}
+            </span>
+          ) : null}
+          {sla.resolveDue ? (
+            <span className={`badge ${sla.resolveDue < now ? "sev-sev1" : ""}`}>
+              {sla.resolveDue < now ? "Resolve target missed" : `Resolve by ${fmt(sla.resolveDue)}`}
+            </span>
+          ) : null}
+          {sla.escalated ? <span className="badge sev-sev2">escalated</span> : null}
+        </p>
+      ) : null}
 
       {message ? <p role="alert" className="error">{message}</p> : null}
       {incident.status === "resolved" && (incident.resolutionKind || incident.resolutionNote) ? (
