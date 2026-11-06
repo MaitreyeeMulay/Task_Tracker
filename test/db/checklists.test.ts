@@ -175,7 +175,7 @@ describe("learning from incidents", () => {
 
       const proposed = (await run(w)).proposed;
       expect(proposed).toEqual([
-        { id: expect.any(String), text: "Restart the payment worker", sourceIncidentId: w.incident, sourceIncidentTitle: "Checkout errors", by: "Alice" },
+        { id: expect.any(String), text: "Restart the payment worker", sourceIncidentId: w.incident, sourceIncidentTitle: "Checkout errors", sourceCaseNumber: expect.stringMatching(/^INC-/), by: "Alice" },
       ]);
       expect((await run(w)).steps).toHaveLength(2);
 
@@ -186,6 +186,7 @@ describe("learning from incidents", () => {
         text: "Restart the payment worker",
         sourceIncidentId: w.incident,
         sourceIncidentTitle: "Checkout errors",
+        sourceCaseNumber: expect.stringMatching(/^INC-/),
         addedBy: "Alice",
         fixedCount: 0,
       });

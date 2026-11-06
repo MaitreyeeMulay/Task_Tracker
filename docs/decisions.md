@@ -2,6 +2,15 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-07: Case numbers and reopening (owner request)
+
+- **Case numbers:** `incidents.number` is an identity column starting at 1001, shown as `INC-1001`. The database assigns it (unique, never reused), including for incidents opened by alerts. Existing rows were numbered by the migration. It's shown on the list, the incident page, checklist pages and step provenance ("learned from INC-1004"). `/incidents/INC-1004` also works, and RLS still applies, so another team's number reads as not found.
+- **Reopen:** only for resolved incidents, by the team's admins and responders, and **a reason is required**.
+  - It returns to **acknowledged** (a person reopened it, so someone is on it). `mitigated_at` and `resolved_at` are cleared.
+  - **The previous resolution is cleared** from the incident but kept on the timeline (the event stores it as `previous_resolution`). If a checklist step had "fixed" it, that step's count drops, because the fix didn't hold.
+  - If a newer open incident already exists for the same alarm, reopening is refused and names that case. Only one open incident per fingerprint is allowed, and two would split the work.
+  - Checklist steps can be completed again after reopening. Earlier completions stay.
+
 ## 2026-11-07: Bug fix: steps could be completed on resolved incidents
 
 - **Found by the owner during a manual test:** after ticking all steps, the incident showed as resolved, which looked like "finishing the checklist resolves the incident". The data showed otherwise: both incidents had been resolved *earlier*, and the steps were ticked afterwards. Nothing ever changed the status automatically, but the app allowed and hid the mismatch.

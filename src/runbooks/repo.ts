@@ -17,6 +17,7 @@ export interface ChecklistStep {
   text: string;
   sourceIncidentId: string | null;
   sourceIncidentTitle: string | null;
+  sourceCaseNumber: string | null;
   addedBy: string | null;
   /** How many incidents this step resolved (incidents.resolution_step_id). */
   fixedCount: number;
@@ -27,11 +28,12 @@ export interface ProposedStep {
   text: string;
   sourceIncidentId: string | null;
   sourceIncidentTitle: string | null;
+  sourceCaseNumber: string | null;
   by: string | null;
 }
 
 export interface ChecklistRunView {
-  incident: { id: string; title: string; status: IncidentStatus; canWrite: boolean; resolutionNote: string | null };
+  incident: { id: string; caseNumber: string; title: string; status: IncidentStatus; canWrite: boolean; resolutionNote: string | null };
   checklist: { id: string; title: string; body: string };
   steps: ChecklistStep[];
   proposed: ProposedStep[];
@@ -69,7 +71,7 @@ function cleanText(value: string, max: number): string | null {
 
 async function stepsOf(db: ClientBase, checklistId: string, status: string) {
   const { rows } = await db.query<ChecklistStep>(
-    `SELECT s.id, s.text, s.source_incident_id AS "sourceIncidentId", i.title AS "sourceIncidentTitle", s.added_by_name AS "addedBy",
+    `SELECT s.id, s.text, s.source_incident_id AS "sourceIncidentId", i.title AS "sourceIncidentTitle", 'INC-' || i.number AS "sourceCaseNumber", s.added_by_name AS "addedBy",
        (SELECT count(*)::int FROM incidents f WHERE f.resolution_step_id = s.id) AS "fixedCount"
      FROM checklist_steps s LEFT JOIN incidents i ON i.id = s.source_incident_id
      WHERE s.runbook_id = $1 AND s.status = $2
@@ -79,11 +81,12 @@ async function stepsOf(db: ClientBase, checklistId: string, status: string) {
   return rows;
 }
 
-const asProposal = ({ id, text, sourceIncidentId, sourceIncidentTitle, addedBy }: ChecklistStep): ProposedStep => ({
+const asProposal = ({ id, text, sourceIncidentId, sourceIncidentTitle, sourceCaseNumber, addedBy }: ChecklistStep): ProposedStep => ({
   id,
   text,
   sourceIncidentId,
   sourceIncidentTitle,
+  sourceCaseNumber,
   by: addedBy,
 });
 
@@ -139,7 +142,7 @@ export async function getChecklistRun(db: ClientBase, incidentId: string, checkl
   for (const row of done.rows) completed[row.step_id] = { by: row.by, at: row.at, finding: row.finding };
 
   return {
-    incident: { id: incident.id, title: incident.title, status: incident.status, canWrite: incident.canWrite, resolutionNote: incident.resolutionNote },
+    incident: { id: incident.id, caseNumber: incident.caseNumber, title: incident.title, status: incident.status, canWrite: incident.canWrite, resolutionNote: incident.resolutionNote },
     checklist,
     steps: await stepsOf(db, checklistId, "active"),
     proposed: (await stepsOf(db, checklistId, "proposed")).map(asProposal),

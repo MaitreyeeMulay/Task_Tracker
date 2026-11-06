@@ -48,7 +48,9 @@ export default async function ChecklistRunPage({
   return (
     <main className="stack">
       <p className="row">
-        <Link href={`/incidents/${incident.id}`}>← {incident.title}</Link>
+        <Link href={`/incidents/${incident.id}`}>
+          ← {incident.caseNumber} {incident.title}
+        </Link>
         <span className="muted">·</span>
         <Link href={`/checklists/${checklist.id}`}>Edit checklist</Link>
       </p>

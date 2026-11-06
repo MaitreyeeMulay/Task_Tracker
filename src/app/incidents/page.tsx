@@ -19,6 +19,7 @@ export default async function IncidentsPage() {
         <table>
           <thead>
             <tr>
+              <th>Case</th>
               <th>Severity</th>
               <th>Title</th>
               <th>Service</th>
@@ -30,6 +31,7 @@ export default async function IncidentsPage() {
           <tbody>
             {incidents.map((incident) => (
               <tr key={incident.id}>
+                <td className="muted">{incident.caseNumber}</td>
                 <td>
                   <span className={`badge sev-${incident.severity.toLowerCase()}`}>{incident.severity}</span>
                 </td>

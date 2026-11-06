@@ -6,7 +6,7 @@ import { getIncident } from "@/incidents/repo";
 import { listChecklistsForIncident } from "@/runbooks/repo";
 import { allowedNextStatuses } from "@/incidents/status";
 import { getPool } from "@/lib/db";
-import { changeStatusAction, resolveAction } from "./actions";
+import { changeStatusAction, reopenAction, resolveAction } from "./actions";
 import { listCompletedSteps } from "@/incidents/resolve";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +19,7 @@ const ERRORS: Record<string, string> = {
   step_not_completed: "Pick a checklist step that was completed on this incident.",
   choose_outcome: "Choose what resolved it.",
   use_resolve: "Use the Resolve form.",
+  not_resolved: "Only a resolved incident can be reopened.",
 };
 
 const ACTION_LABEL: Record<string, string> = {
@@ -41,19 +42,32 @@ export default async function IncidentPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; open?: string }>;
 }) {
-  const [{ id }, { error }] = await Promise.all([params, searchParams]);
+  const [{ id }, { error, open }] = await Promise.all([params, searchParams]);
   const user = await requireUser();
-  const { incident, checklists, completedSteps } = await withUser(getPool(), user.id, async (db) => ({
-    incident: await getIncident(db, id),
-    checklists: await listChecklistsForIncident(db, id),
-    completedSteps: await listCompletedSteps(db, id),
-  }));
-  if (!incident) notFound();
+  // The URL may hold the incident id or its case number (INC-1001).
+  const data = await withUser(getPool(), user.id, async (db) => {
+    const found = await getIncident(db, decodeURIComponent(id));
+    if (!found) return null;
+    return {
+      incident: found,
+      checklists: await listChecklistsForIncident(db, found.id),
+      completedSteps: await listCompletedSteps(db, found.id),
+    };
+  });
+  if (!data) notFound();
+  const { incident, checklists, completedSteps } = data;
 
   const next = incident.canWrite ? allowedNextStatuses(incident.status) : [];
-  const message = error ? (ERRORS[error] ?? "That change is not allowed.") : null;
+  const message =
+    error === "duplicate_open" && open ? (
+      <>
+        Can&apos;t reopen: this alarm already has a newer open incident, <Link href={`/incidents/${open}`}>{open}</Link>. Work on that one instead.
+      </>
+    ) : error ? (
+      (ERRORS[error] ?? "That change is not allowed.")
+    ) : null;
   const hidden = <input type="hidden" name="incidentId" value={incident.id} />;
 
   return (
@@ -61,6 +75,7 @@ export default async function IncidentPage({
       <p>
         <Link href="/incidents">← All incidents</Link>
       </p>
+      <p className="muted small">{incident.caseNumber}</p>
       <h1>{incident.title}</h1>
       <p className="row">
         <span className={`badge sev-${incident.severity.toLowerCase()}`}>{incident.severity}</span>
@@ -82,6 +97,24 @@ export default async function IncidentPage({
           </strong>{" "}
           {incident.resolutionNote}
         </p>
+      ) : null}
+
+      {incident.status === "resolved" && incident.canWrite ? (
+        <form action={reopenAction} className="card stack">
+          {hidden}
+          <label className="stack">
+            <strong>Reopen: why?</strong>
+            <input name="reason" required maxLength={1000} placeholder="e.g. Errors came back after 20 minutes" />
+          </label>
+          <p className="muted small">
+            Reopening sets the incident back to acknowledged and clears its resolution (it stays on the timeline).
+          </p>
+          <div>
+            <button type="submit" className="secondary">
+              Reopen {incident.caseNumber}
+            </button>
+          </div>
+        </form>
       ) : null}
 
       {next.filter((to) => to !== "resolved").length > 0 ? (

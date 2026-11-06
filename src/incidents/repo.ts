@@ -1,5 +1,6 @@
 import type { ClientBase } from "pg";
-import { planTransition, type IncidentStatus } from "./status.ts";
+import { parseCaseNumber } from "./case-number.ts";
+import { planReopen, planTransition, type IncidentStatus } from "./status.ts";
 
 // Incident reads and writes for signed-in users. Callers run these as app_rw
 // with the user set (src/db/with-user.ts): RLS limits every query to the user's
@@ -7,6 +8,8 @@ import { planTransition, type IncidentStatus } from "./status.ts";
 
 export interface IncidentSummary {
   id: string;
+  /** INC-1001 style, unique and permanent. */
+  caseNumber: string;
   title: string;
   severity: string;
   status: IncidentStatus;
@@ -36,7 +39,7 @@ export type ChangeResult = { ok: true } | { ok: false; error: string };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const SUMMARY_COLUMNS = `
-  i.id, i.title, i.severity, i.status, s.name AS service,
+  i.id, 'INC-' || i.number AS "caseNumber", i.title, i.severity, i.status, s.name AS service,
   i.alert_count AS "alertCount", i.opened_at AS "openedAt"`;
 
 /** Open incidents first (most severe, newest), then resolved ones. */
@@ -51,7 +54,10 @@ export async function listIncidents(db: ClientBase): Promise<IncidentSummary[]> 
 }
 
 function describe(kind: string, data: Record<string, unknown>): string | null {
-  if (kind === "status_changed" && typeof data.from === "string" && typeof data.to === "string") return `${data.from} → ${data.to}`;
+  if (kind === "status_changed" && typeof data.from === "string" && typeof data.to === "string") {
+    const reason = typeof data.reason === "string" ? ` (reopened: ${data.reason})` : "";
+    return `${data.from} → ${data.to}${reason}`;
+  }
   if (kind === "alert_resolved") return "alarm cleared";
   if (kind === "runbook_step" && typeof data.runbook_title === "string" && typeof data.step_text === "string") {
     const finding = typeof data.finding === "string" ? ` — ${data.finding}` : "";
@@ -62,15 +68,17 @@ function describe(kind: string, data: Record<string, unknown>): string | null {
 }
 
 export async function getIncident(db: ClientBase, id: string): Promise<IncidentDetail | null> {
-  if (!UUID.test(id)) return null;
+  // Accepts the incident id or its case number (INC-1001). RLS still limits it to the user's teams.
+  const caseNumber = parseCaseNumber(id);
+  if (!caseNumber && !UUID.test(id)) return null;
   const { rows } = await db.query<IncidentSummary & { canWrite: boolean; resolutionNote: string | null; resolutionKind: string | null }>(
     `SELECT ${SUMMARY_COLUMNS}, i.resolution_note AS "resolutionNote", i.resolution_kind AS "resolutionKind",
        EXISTS (SELECT 1 FROM memberships m
                WHERE m.team_id = i.team_id AND m.user_id = app_user_id()
                  AND m.role IN ('admin', 'responder')) AS "canWrite"
      FROM incidents i JOIN services s ON s.id = i.service_id
-     WHERE i.id = $1`,
-    [id],
+     WHERE ${caseNumber ? "i.number = $1" : "i.id = $1"}`,
+    [caseNumber ?? id],
   );
   const incident = rows[0];
   if (!incident) return null;
@@ -78,7 +86,7 @@ export async function getIncident(db: ClientBase, id: string): Promise<IncidentD
   const events = await db.query<{ kind: string; occurredAt: Date; data: Record<string, unknown> }>(
     `SELECT kind, occurred_at AS "occurredAt", data FROM incident_events
      WHERE incident_id = $1 ORDER BY occurred_at, id`,
-    [id],
+    [incident.id],
   );
   const timeline = events.rows.map((e) => ({
     kind: e.kind,
@@ -138,5 +146,74 @@ export async function changeStatus(
       [incidentId, teamId, actor.id, JSON.stringify({ text: `What fixed it: ${note}`, actor_name: actor.name })],
     );
   }
+  return { ok: true };
+}
+
+/**
+ * Reopens a resolved incident (owner request 2026-11-07). A reason is required.
+ * The previous resolution is cleared from the incident (so a checklist step that
+ * "fixed" it stops counting) but kept on the timeline. Refused when a newer open
+ * incident exists for the same alarm, since only one may be open per fingerprint.
+ */
+export async function reopenIncident(
+  db: ClientBase,
+  { incidentId, reason, actor, now }: { incidentId: string; reason: string; actor: { id: string; name: string }; now: Date },
+): Promise<{ ok: true } | { ok: false; error: string; openCase?: string }> {
+  const why = reason.trim();
+  if (why.length < 1 || why.length > 1000) return { ok: false, error: "invalid_text" };
+  const incident = await getIncident(db, incidentId);
+  if (!incident) return { ok: false, error: "not_found" };
+  if (!incident.canWrite) return { ok: false, error: "forbidden" };
+  const plan = planReopen(incident.status, now);
+  if (!plan.ok) return plan;
+
+  const { rows } = await db.query<{ team_id: string; service_id: string; fingerprint: string }>(
+    "SELECT team_id, service_id, fingerprint FROM incidents WHERE id = $1",
+    [incident.id],
+  );
+  const row = rows[0];
+  if (!row) return { ok: false, error: "not_found" };
+
+  // A savepoint lets us recover from the unique-index violation and explain it.
+  await db.query("SAVEPOINT reopen");
+  try {
+    const updated = await db.query(
+      `UPDATE incidents SET status = $2, acknowledged_at = $3, mitigated_at = NULL, resolved_at = NULL,
+         resolution_kind = NULL, resolution_step_id = NULL, resolution_note = NULL
+       WHERE id = $1 AND status = 'resolved'`,
+      [incident.id, plan.status, now],
+    );
+    await db.query("RELEASE SAVEPOINT reopen");
+    if (updated.rowCount !== 1) return { ok: false, error: "conflict" };
+  } catch (error) {
+    if ((error as { code?: string }).code !== "23505") throw error;
+    await db.query("ROLLBACK TO SAVEPOINT reopen");
+    const open = await db.query<{ case: string }>(
+      `SELECT 'INC-' || number AS case FROM incidents
+       WHERE service_id = $1 AND fingerprint = $2 AND status <> 'resolved'`,
+      [row.service_id, row.fingerprint],
+    );
+    return { ok: false, error: "duplicate_open", ...(open.rows[0] ? { openCase: open.rows[0].case } : {}) };
+  }
+
+  await db.query(
+    `INSERT INTO incident_events (incident_id, team_id, kind, actor_user_id, data) VALUES ($1, $2, 'status_changed', $3, $4)`,
+    [
+      incident.id,
+      row.team_id,
+      actor.id,
+      JSON.stringify({
+        from: "resolved",
+        to: plan.status,
+        reason: why,
+        previous_resolution: { kind: incident.resolutionKind, note: incident.resolutionNote },
+        actor_name: actor.name,
+      }),
+    ],
+  );
+  await db.query(
+    `INSERT INTO audit_log (actor_user_id, team_id, action, entity_type, entity_id) VALUES ($1, $2, 'incident.reopened', 'incident', $3)`,
+    [actor.id, row.team_id, incident.id],
+  );
   return { ok: true };
 }

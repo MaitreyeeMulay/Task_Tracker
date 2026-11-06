@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allowedNextStatuses, planTransition } from "./status.ts";
+import { allowedNextStatuses, planReopen, planTransition } from "./status.ts";
 
 const NOW = new Date("2026-11-01T12:00:00Z");
 
@@ -11,6 +11,20 @@ describe("allowedNextStatuses", () => {
     ["resolved", []],
   ] as const)("%s -> %j", (from, to) => {
     expect(allowedNextStatuses(from)).toEqual(to);
+  });
+});
+
+describe("planReopen", () => {
+  it("reopens a resolved incident as acknowledged and clears the later timestamps", () => {
+    expect(planReopen("resolved", NOW)).toEqual({
+      ok: true,
+      status: "acknowledged",
+      set: { acknowledged_at: NOW, mitigated_at: null, resolved_at: null },
+    });
+  });
+
+  it.each(["triggered", "acknowledged", "mitigated"] as const)("refuses to reopen a %s incident", (from) => {
+    expect(planReopen(from, NOW)).toEqual({ ok: false, error: "not_resolved" });
   });
 });
 

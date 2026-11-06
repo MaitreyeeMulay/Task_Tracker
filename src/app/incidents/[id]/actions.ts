@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/auth/current-user";
 import { withUser } from "@/db/with-user";
-import { changeStatus } from "@/incidents/repo";
+import { changeStatus, reopenIncident } from "@/incidents/repo";
 import { resolveIncident, type Resolution } from "@/incidents/resolve";
 import { getPool } from "@/lib/db";
 
@@ -55,5 +55,20 @@ export async function resolveAction(formData: FormData): Promise<void> {
     resolveIncident(db, { incidentId, actor: { id: user.id, name: user.name }, now: new Date(), resolution }),
   );
   console.log(JSON.stringify({ event: "incident_resolved", user_id: user.id, incident_id: incidentId.slice(0, 36), outcome, ok: result.ok }));
+  back(incidentId, result);
+}
+
+/** Reopen a resolved incident; a reason is required. */
+export async function reopenAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const incidentId = field(formData, "incidentId");
+  const result = await withUser(getPool(), user.id, (db) =>
+    reopenIncident(db, { incidentId, reason: field(formData, "reason"), actor: { id: user.id, name: user.name }, now: new Date() }),
+  );
+  console.log(JSON.stringify({ event: "incident_reopened", user_id: user.id, incident_id: incidentId.slice(0, 36), ok: result.ok }));
+  if (!result.ok && result.error === "duplicate_open" && result.openCase) {
+    revalidatePath(`/incidents/${incidentId}`);
+    redirect(`/incidents/${incidentId}?error=duplicate_open&open=${encodeURIComponent(result.openCase)}`);
+  }
   back(incidentId, result);
 }
