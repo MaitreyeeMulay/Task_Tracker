@@ -70,6 +70,7 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | Brute force on dev login | Lockout | **Not built (M5 is out of scope).** Accepted: the dev login is only reachable locally |
 | CSRF | SameSite cookies, CSRF token | Partly in M2 (SameSite). Full token in M5, not built |
 | XSS in runbook markdown | No HTML is ever produced: Markdown becomes plain-text blocks rendered by React | Done (M3), unit test with `<script>` and `<img onerror>` |
+| Checklist poisoned with a bad step | New steps from incidents are only *proposed*, then a team responder/admin accepts them. Every add, accept, reject, retire and edit is audited. Retire instead of delete keeps history | Done (2026-11-06), DB tests |
 | Runbook steps faked or repeated | RLS: only team admins/responders, as themselves. Primary key stops double completion. Append-only | Done (M3), DB tests |
 
 ### CI and supply chain (M0)
@@ -111,6 +112,7 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 - 2026-10-28: added CI and supply-chain controls (T5).
 - 2026-10-30: added SNS verification, the topic allow-check and the outbound SSRF guard (T9).
 - 2026-10-30: added the incident schema, the `app_ingest` role and DB-enforced dedupe (T10).
+- 2026-11-06: response checklists are now editable living documents: proposals with review, findings, retire instead of delete.
 - 2026-11-01: M3 added runbooks (text-only rendering) and step completions with RLS.
 - 2026-11-01: M2 added sessions, dev login, team-scoped RLS for users, and status changes with timeline and audit.
 - 2026-11-01: SNS ingestion endpoint live (T11). Body cap of 300 KB, generic errors, ids-only logs. End-to-end tests cover forged and duplicate alerts. Rate limiting is still open (M5, not built), so a flood of *verified* alerts is bounded only by dedupe.

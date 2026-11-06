@@ -75,3 +75,13 @@ code { font-size: 0.9em; }
 .step.done { opacity: 0.75; }
 pre.card { overflow-x: auto; margin: 0; }
 h3 { margin: 0.5rem 0 0; font-size: 1rem; }
+
+.small { font-size: 0.85rem; }
+button.secondary { background: transparent; color: var(--accent); }
+textarea, select {
+  padding: 0.5rem 0.6rem; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); color: var(--text); font: inherit; width: 100%;
+}
+select { width: auto; }
+ol.stack { padding-left: 1.2rem; margin: 0; }
+details summary { cursor: pointer; }

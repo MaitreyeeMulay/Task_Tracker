@@ -74,8 +74,11 @@ async function seedRunbooks(client: pg.Client): Promise<void> {
   }
   for (const rb of RUNBOOKS) {
     await client.query(
-      `INSERT INTO runbooks (team_id, service_id, title, body_md)
-       SELECT team_id, id, $2, $3 FROM services WHERE name = $1`,
+      `WITH r AS (INSERT INTO runbooks (team_id, service_id, title, body_md)
+                  SELECT team_id, id, $2, $3 FROM services WHERE name = $1
+                  RETURNING id, team_id)
+       INSERT INTO checklist_steps (runbook_id, team_id, sort_order, text)
+       SELECT r.id, r.team_id, s.pos, s.text FROM r CROSS JOIN LATERAL checklist_steps_from_markdown($3) s`,
       [rb.service, rb.title, rb.body],
     );
   }

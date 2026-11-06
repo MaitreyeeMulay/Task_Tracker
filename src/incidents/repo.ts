@@ -24,6 +24,8 @@ export interface TimelineEntry {
 
 export interface IncidentDetail extends IncidentSummary {
   canWrite: boolean;
+  /** "What fixed it", recorded when resolving. */
+  resolutionNote: string | null;
   timeline: TimelineEntry[];
 }
 
@@ -50,15 +52,17 @@ function describe(kind: string, data: Record<string, unknown>): string | null {
   if (kind === "status_changed" && typeof data.from === "string" && typeof data.to === "string") return `${data.from} → ${data.to}`;
   if (kind === "alert_resolved") return "alarm cleared";
   if (kind === "runbook_step" && typeof data.runbook_title === "string" && typeof data.step_text === "string") {
-    return `${data.runbook_title}: ✓ ${data.step_text}`;
+    const finding = typeof data.finding === "string" ? ` — ${data.finding}` : "";
+    return `${data.runbook_title}: ✓ ${data.step_text}${finding}`;
   }
+  if (kind === "note" && typeof data.text === "string") return data.text;
   return null;
 }
 
 export async function getIncident(db: ClientBase, id: string): Promise<IncidentDetail | null> {
   if (!UUID.test(id)) return null;
-  const { rows } = await db.query<IncidentSummary & { canWrite: boolean }>(
-    `SELECT ${SUMMARY_COLUMNS},
+  const { rows } = await db.query<IncidentSummary & { canWrite: boolean; resolutionNote: string | null }>(
+    `SELECT ${SUMMARY_COLUMNS}, i.resolution_note AS "resolutionNote",
        EXISTS (SELECT 1 FROM memberships m
                WHERE m.team_id = i.team_id AND m.user_id = app_user_id()
                  AND m.role IN ('admin', 'responder')) AS "canWrite"
@@ -85,7 +89,13 @@ export async function getIncident(db: ClientBase, id: string): Promise<IncidentD
 
 export async function changeStatus(
   db: ClientBase,
-  { incidentId, to, actor, now }: { incidentId: string; to: string; actor: { id: string; name: string }; now: Date },
+  {
+    incidentId,
+    to,
+    actor,
+    now,
+    resolutionNote,
+  }: { incidentId: string; to: string; actor: { id: string; name: string }; now: Date; resolutionNote?: string },
 ): Promise<ChangeResult> {
   const incident = await getIncident(db, incidentId);
   if (!incident) return { ok: false, error: "not_found" };
@@ -115,5 +125,16 @@ export async function changeStatus(
      VALUES ($1, $2, 'incident.status_changed', 'incident', $3)`,
     [actor.id, teamId, incidentId],
   );
+
+  // "What fixed it": kept on the incident and shown on the timeline, so it can
+  // later be proposed as a checklist step (src/runbooks/repo.ts proposeStep).
+  const note = resolutionNote?.trim().slice(0, 2000);
+  if (plan.status === "resolved" && note) {
+    await db.query("UPDATE incidents SET resolution_note = $2 WHERE id = $1", [incidentId, note]);
+    await db.query(
+      `INSERT INTO incident_events (incident_id, team_id, kind, actor_user_id, data) VALUES ($1, $2, 'note', $3, $4)`,
+      [incidentId, teamId, actor.id, JSON.stringify({ text: `What fixed it: ${note}`, actor_name: actor.name })],
+    );
+  }
   return { ok: true };
 }

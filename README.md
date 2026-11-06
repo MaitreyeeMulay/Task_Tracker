@@ -51,7 +51,7 @@ npm run dev                       # then open http://localhost:3000
 ```
 
 Sign in with `alice@example.test` (Responder, Payments), `bob@example.test` (Viewer, Payments) or `carol@example.test` (Responder, Search). Each person sees only their own team's incidents. Alice can acknowledge, mitigate and resolve; Bob can only look.
-Open an incident and pick a runbook under "Runbooks" to tick off steps; each one lands on the timeline. Requires `DEV_LOGIN_ENABLED=true` and a `SESSION_SECRET` in `.env` (see `.env.example`).
+Open an incident and pick a **response checklist** to tick off steps (with what you found); each one lands on the timeline. When resolving, say what fixed it and propose it as a new step; accept it under **Checklists**. Requires `DEV_LOGIN_ENABLED=true` and a `SESSION_SECRET` in `.env` (see `.env.example`).
 
 ### Infrastructure (Terraform)
 
@@ -97,7 +97,7 @@ A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinne
 | M0 Foundation | Done | CI green, gates proven, `main` protected |
 | M1 Ingestion | Done | `POST /api/ingest/sns/{id}`: verified CloudWatch alarms open incidents, duplicates join them |
 | M2 Incidents and team scoping | Done | Login, incident list and detail, status changes, timeline; RLS proves team isolation |
-| M3 Runbooks | Done | Runbooks open from incidents; ticked steps appear on the timeline |
+| M3 Response checklists | Done | Living checklists: findings per step, "what fixed it" can be proposed as a step (linked to the incident) and reviewed; editable in the app |
 | M4 to M6 | Designed, not built | |
 
 ## Security
