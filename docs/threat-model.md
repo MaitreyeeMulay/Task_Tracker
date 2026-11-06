@@ -67,8 +67,12 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | Session forgery or theft | HMAC-signed cookie, constant-time check, HttpOnly, SameSite=Lax, Secure in prod, 8-hour expiry, secret rotation | Done (M2), unit tests |
 | Cross-team access via guessed ids | RLS on `app_rw`: another team's incident reads as "not found" | Done (M2), DB tests |
 | Viewer writes through the UI or by crafted request | RLS write policies exclude viewers. The UI hides buttons, but the DB is the gate | Done (M2), DB tests |
-| Brute force on dev login | Lockout | **Not built (M5 is out of scope).** Accepted: the dev login is only reachable locally |
-| CSRF | SameSite cookies, CSRF token | Partly in M2 (SameSite). Full token in M5, not built |
+| Brute force on password login | Lockout after 5 failures (15 min), rate limits per address and per email, generic errors, timing equalised | Done (M5), DB and unit tests |
+| Account enumeration | One message for every failure; scrypt runs for unknown emails too | Done (M5), DB test |
+| Pre-login database access | `app_auth` role: login columns only | Done (M5), DB test |
+| CSRF | SameSite=Lax cookies, Next server-action Origin check, proxy refuses cross-site/foreign-Origin state changes | Done (M5), unit tests |
+| XSS / clickjacking | Nonce CSP with `strict-dynamic`, no `unsafe-eval` in production, `frame-ancestors 'none'`, nosniff | Done (M5), unit tests; live check pending |
+| Alert flood | 300/min per integration (429), body cap, dedupe | Done (M5) |
 | XSS in runbook markdown | No HTML is ever produced: Markdown becomes plain-text blocks rendered by React | Done (M3), unit test with `<script>` and `<img onerror>` |
 | Checklist poisoned with a bad step | New steps from incidents are only *proposed*, then a team responder/admin accepts them. Every add, accept, reject, retire and edit is audited. Retire instead of delete keeps history | Done (2026-11-06), DB tests |
 | Runbook steps faked or repeated | RLS: only team admins/responders, as themselves. Primary key stops double completion. Append-only | Done (M3), DB tests |

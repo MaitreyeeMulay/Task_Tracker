@@ -3,6 +3,7 @@ import { getPool } from "@/lib/db";
 import { createSnsDeps } from "@/ingest/sns-deps";
 import { handleSnsIngest, readBodyLimited } from "@/ingest/sns-handler";
 import { createCertFetcher, createStubSubscriptionConfirmer, createSubscriptionConfirmer } from "@/ingest/sns-http";
+import { ingestByIntegration } from "@/security/limits";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,11 @@ const deps = createSnsDeps({
 
 export async function POST(request: Request, { params }: { params: Promise<{ integrationId: string }> }) {
   const { integrationId } = await params;
+  // At most 300 requests per minute per integration (per app instance).
+  if (!ingestByIntegration.take(integrationId.slice(0, 64), Date.now())) {
+    console.warn(JSON.stringify({ event: "ingest_rate_limited", integration_id: integrationId.slice(0, 36) }));
+    return Response.json({ error: "too many requests" }, { status: 429, headers: { "Retry-After": "60" } });
+  }
   const body = await readBodyLimited(request, MAX_BODY_BYTES);
   const result = await handleSnsIngest({ integrationId, body }, deps);
   return Response.json(result.body, { status: result.status, headers: { "Cache-Control": "no-store" } });

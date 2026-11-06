@@ -2,6 +2,17 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-08: M5-A password login with lockout, rate limits, headers, CSRF
+
+- **Passwords:** Node's built-in `scrypt` (N=32768, r=8, p=1, 16-byte salt), stored with its parameters so they can be raised later. Length 12–128. No dependency.
+- **Lockout:** 5 consecutive failures lock the account for 15 minutes, and a success resets the count. Every failure (wrong password, unknown email, locked, rate-limited) gives **one generic message**, and unknown emails still cost one scrypt run, so neither the text nor the timing reveals which accounts exist. Every attempt is audited (ids only).
+- **`app_auth` role:** pre-login queries (password login, dev email lookup) run as a role that can read only `users(id, email, password_hash, failed_logins, locked_until)` and update the counters. This replaces the dev login's earlier direct query on the owner connection.
+- **Rate limits** (in memory, per app instance): login 20/min per client address and 10/min per email; alert intake 300/min per integration, answering 429 before the body is read. **Trade-off:** several instances each enforce their own limit. A strict global limit would need a shared store, which is noted for M6. `X-Forwarded-For` is trusted only with `TRUST_PROXY=true`, because clients can forge it.
+- **Security headers** through the Next.js 16 proxy, with a fresh nonce per request: CSP `script-src 'self' 'nonce-…' 'strict-dynamic'` (plus `'unsafe-eval'` only in development for fast refresh), `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'none'`, `form-action 'self'`, nosniff, DENY framing, a strict referrer policy, COOP, a restrictive Permissions-Policy, and HSTS in production. `style-src` keeps `'unsafe-inline'`, which is accepted because inline styles can't run script.
+- **CSRF:** the proxy refuses state-changing requests marked `Sec-Fetch-Site: cross-site`, or whose `Origin` isn't exactly this host (the `null` origin included). This sits on top of SameSite=Lax cookies and Next's own server-action Origin check. Signed machine endpoints (`/api/ingest/`) are exempt.
+- **Dev passwords:** `npm run seed` sets the seeded users' password to `DEV_SEED_PASSWORD` from `.env` if you set one. The owner chooses it, so no password is in code or printed.
+- **Not yet verified live:** headers on a running server. Unit tests cover the header and CSRF logic, and the production build compiles the proxy. Check with `curl -I` after the next restart.
+
 ## 2026-11-08: M4 SLA timers, escalation and notification outbox
 
 - **SLA targets** live in `sla_targets` (SEV1 5 min / 1 h, SEV2 15 min / 4 h, SEV3 1 h / 24 h, SEV4 4 h / 72 h). These are defaults chosen by Claude and changeable with SQL; the spec only says "per severity".
