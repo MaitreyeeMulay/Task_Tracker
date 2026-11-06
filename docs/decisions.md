@@ -2,6 +2,14 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-07: Bug fix: steps could be completed on resolved incidents
+
+- **Found by the owner during a manual test:** after ticking all steps, the incident showed as resolved, which looked like "finishing the checklist resolves the incident". The data showed otherwise: both incidents had been resolved *earlier*, and the steps were ticked afterwards. Nothing ever changed the status automatically, but the app allowed and hid the mismatch.
+- **Fix:** `completeStep` refuses with `incident_resolved` once an incident is resolved. The checklist page shows a "resolved" banner and no tick buttons. When every step is done but the incident is still open, the page says so and points to adding the next thing tried as a step, or resolving from the incident page once it's actually fixed.
+- **Rule, now under test:** completing checklist steps never changes an incident's status, because the steps may not have fixed it. Only the Resolve form resolves, by answering what resolved it.
+- Proposing a step after resolution is still allowed: that's the learning loop working as intended.
+- Two dev-data incidents already have steps ticked after resolution. That history is kept as it was (append-only).
+
 ## 2026-11-06: Resolving asks "what resolved it?" (owner request)
 
 - Replaces the free-text "what fixed it" box with one required choice when resolving:

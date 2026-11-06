@@ -1,5 +1,6 @@
 import type { ClientBase } from "pg";
 import { getIncident } from "../incidents/repo.ts";
+import type { IncidentStatus } from "../incidents/status.ts";
 import { parseRunbook } from "./markdown.ts";
 
 // Response checklists (stored in the "runbooks" table; see migration 0005).
@@ -30,7 +31,7 @@ export interface ProposedStep {
 }
 
 export interface ChecklistRunView {
-  incident: { id: string; title: string; canWrite: boolean; resolutionNote: string | null };
+  incident: { id: string; title: string; status: IncidentStatus; canWrite: boolean; resolutionNote: string | null };
   checklist: { id: string; title: string; body: string };
   steps: ChecklistStep[];
   proposed: ProposedStep[];
@@ -138,7 +139,7 @@ export async function getChecklistRun(db: ClientBase, incidentId: string, checkl
   for (const row of done.rows) completed[row.step_id] = { by: row.by, at: row.at, finding: row.finding };
 
   return {
-    incident: { id: incident.id, title: incident.title, canWrite: incident.canWrite, resolutionNote: incident.resolutionNote },
+    incident: { id: incident.id, title: incident.title, status: incident.status, canWrite: incident.canWrite, resolutionNote: incident.resolutionNote },
     checklist,
     steps: await stepsOf(db, checklistId, "active"),
     proposed: (await stepsOf(db, checklistId, "proposed")).map(asProposal),
@@ -154,6 +155,9 @@ export async function completeStep(
   const view = await getChecklistRun(db, incidentId, checklistId);
   if (!view) return { ok: false, error: "not_found" };
   if (!view.incident.canWrite) return { ok: false, error: "forbidden" };
+  // Steps record work done while the incident is open. Completing them never
+  // changes the incident's status, and a resolved incident takes no more steps.
+  if (view.incident.status === "resolved") return { ok: false, error: "incident_resolved" };
   const step = view.steps.find((s) => s.id === stepId);
   if (!step) return { ok: false, error: "invalid_step" };
   if (input.finding.trim().length > MAX_FINDING) return { ok: false, error: "invalid_text" };

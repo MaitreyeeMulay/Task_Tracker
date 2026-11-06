@@ -48,6 +48,34 @@ async function stepIds(w: World): Promise<string[]> {
   return ((await getChecklistRun(client, w.incident, w.checklist))?.steps ?? []).map((s) => s.id);
 }
 
+describe("checklist steps never resolve an incident", () => {
+  it("completing every step leaves the incident open", async () => {
+    await inRollback(client, async () => {
+      const w = await seed();
+      await asUserInTransaction(client, w.alice);
+      for (const stepId of await stepIds(w)) {
+        expect(await completeStep(client, { incidentId: w.incident, checklistId: w.checklist, stepId, finding: "", actor: alice(w), now: NOW })).toEqual({ ok: true });
+      }
+      const view = await getChecklistRun(client, w.incident, w.checklist);
+      expect(view?.incident.status).toBe("triggered");
+      expect(Object.keys(view?.completed ?? {})).toHaveLength(2);
+    });
+  });
+
+  it("refuses to complete steps once the incident is resolved", async () => {
+    await inRollback(client, async () => {
+      const w = await seed();
+      await asUserInTransaction(client, w.alice);
+      const [first] = await stepIds(w);
+      await resolveIncident(client, { incidentId: w.incident, actor: alice(w), now: NOW, resolution: { kind: "self_resolved", note: "" } });
+      expect(await completeStep(client, { incidentId: w.incident, checklistId: w.checklist, stepId: first ?? "", finding: "", actor: alice(w), now: NOW })).toEqual({
+        ok: false,
+        error: "incident_resolved",
+      });
+    });
+  });
+});
+
 describe("resolveIncident", () => {
   it("a completed checklist step fixed it: recorded, on the timeline, and counted on the step", async () => {
     await inRollback(client, async () => {
