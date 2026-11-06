@@ -51,7 +51,7 @@ npm run dev                       # then open http://localhost:3000
 ```
 
 Sign in with `alice@example.test` (Responder, Payments), `bob@example.test` (Viewer, Payments) or `carol@example.test` (Responder, Search). Each person sees only their own team's incidents. Alice can acknowledge, mitigate and resolve; Bob can only look.
-Open an incident and pick a **response checklist** to tick off steps (with what you found); each one lands on the timeline. When resolving, say what fixed it and propose it as a new step; accept it under **Checklists**. Requires `DEV_LOGIN_ENABLED=true` and a `SESSION_SECRET` in `.env` (see `.env.example`).
+Open an incident and pick a **response checklist** to tick off steps (with what you found); each one lands on the timeline. When resolving, answer **what resolved it**: a checklist step (it then shows "fixed N incidents"), something else (proposed as a new step, accepted under **Checklists**), or it recovered on its own. Requires `DEV_LOGIN_ENABLED=true` and a `SESSION_SECRET` in `.env` (see `.env.example`).
 
 ### Infrastructure (Terraform)
 

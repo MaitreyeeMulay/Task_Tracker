@@ -2,6 +2,16 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-06: Resolving asks "what resolved it?" (owner request)
+
+- Replaces the free-text "what fixed it" box with one required choice when resolving:
+  1. **A checklist step fixed it:** pick from the steps completed on *this* incident (any other choice is refused). Stored as `incidents.resolution_step_id`; each step then shows "fixed N incidents".
+  2. **Something else fixed it:** a description is required. By default it is added as a **proposed** step to the incident's checklist (reviewed later), or not, if the responder chooses.
+  3. **It recovered on its own / false alarm:** note optional. If an alarm keeps landing here, it is noise worth tuning.
+- **Why:** a forced choice gives an answer every time, and it measures which steps actually work. That's the "helped / didn't help" data deferred earlier, now captured at the one moment people know the answer.
+- Migration 0006 is additive (two nullable columns). A composite FK keeps the fixing step in the incident's own team, and a CHECK allows a step only for `checklist_step` outcomes.
+- Validation runs before anything changes, and the status change, resolution and proposal happen in one transaction.
+
 ## 2026-11-06: Runbooks become living "response checklists" (owner request)
 
 The owner pointed out that "runbook" often means an executed workflow, and that a team should be able to record what actually helped. Agreed changes and the reasoning behind them:

@@ -17,6 +17,8 @@ export interface ChecklistStep {
   sourceIncidentId: string | null;
   sourceIncidentTitle: string | null;
   addedBy: string | null;
+  /** How many incidents this step resolved (incidents.resolution_step_id). */
+  fixedCount: number;
 }
 
 export interface ProposedStep {
@@ -66,7 +68,8 @@ function cleanText(value: string, max: number): string | null {
 
 async function stepsOf(db: ClientBase, checklistId: string, status: string) {
   const { rows } = await db.query<ChecklistStep>(
-    `SELECT s.id, s.text, s.source_incident_id AS "sourceIncidentId", i.title AS "sourceIncidentTitle", s.added_by_name AS "addedBy"
+    `SELECT s.id, s.text, s.source_incident_id AS "sourceIncidentId", i.title AS "sourceIncidentTitle", s.added_by_name AS "addedBy",
+       (SELECT count(*)::int FROM incidents f WHERE f.resolution_step_id = s.id) AS "fixedCount"
      FROM checklist_steps s LEFT JOIN incidents i ON i.id = s.source_incident_id
      WHERE s.runbook_id = $1 AND s.status = $2
      ORDER BY s.sort_order, s.created_at`,
@@ -75,7 +78,13 @@ async function stepsOf(db: ClientBase, checklistId: string, status: string) {
   return rows;
 }
 
-const asProposal = ({ addedBy, ...rest }: ChecklistStep): ProposedStep => ({ ...rest, by: addedBy });
+const asProposal = ({ id, text, sourceIncidentId, sourceIncidentTitle, addedBy }: ChecklistStep): ProposedStep => ({
+  id,
+  text,
+  sourceIncidentId,
+  sourceIncidentTitle,
+  by: addedBy,
+});
 
 async function canWriteChecklist(db: ClientBase, checklistId: string): Promise<{ exists: boolean; canWrite: boolean; teamId?: string }> {
   const { rows } = await db.query<{ team_id: string; can_write: boolean }>(

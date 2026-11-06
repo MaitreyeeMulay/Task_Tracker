@@ -187,6 +187,7 @@ describe("learning from incidents", () => {
         sourceIncidentId: w.incident,
         sourceIncidentTitle: "Checkout errors",
         addedBy: "Alice",
+        fixedCount: 0,
       });
       expect((await run(w)).proposed).toEqual([]);
     });
