@@ -36,7 +36,7 @@ describe("the tracker_app login role", () => {
   it("does not inherit the app roles' privileges, so every query must pick a role first", async () => {
     await inRollback(client, async () => {
       await client.query("SET LOCAL ROLE tracker_app");
-      expect((await dbError(client, "SELECT 1 FROM incidents LIMIT 1"))?.code).toBe(INSUFFICIENT_PRIVILEGE);
+      expect((await dbError(client, "SELECT 1 FROM public.incidents LIMIT 1"))?.code).toBe(INSUFFICIENT_PRIVILEGE);
     });
   });
 
