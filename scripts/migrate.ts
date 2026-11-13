@@ -1,15 +1,13 @@
-// Usage: npm run migrate  (applies migrations/ to DATABASE_URL)
+// Usage: npm run migrate  (applies migrations/ to DATABASE_URL, or over IAM auth on AWS)
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { loadMigrationFiles, runMigrations } from "../src/db/migrate.ts";
+import { poolConfigFromEnv } from "../src/lib/aws.ts";
 
 const MIGRATIONS_DIR = fileURLToPath(new URL("../migrations", import.meta.url));
 
 async function main(): Promise<void> {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) throw new Error("DATABASE_URL is not set. See .env.example.");
-
-  const client = new pg.Client({ connectionString, connectionTimeoutMillis: 15_000 });
+  const client = new pg.Client({ ...poolConfigFromEnv(process.env), connectionTimeoutMillis: 15_000 });
   await client.connect();
   try {
     const applied = await runMigrations(client, await loadMigrationFiles(MIGRATIONS_DIR));

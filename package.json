@@ -19,6 +19,8 @@
     "worker": "node --env-file-if-exists=.env scripts/worker.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "3.1159.0",
+    "@aws-sdk/rds-signer": "3.1159.0",
     "next": "16.4.3",
     "openid-client": "6.8.9",
     "pg": "8.23.1",

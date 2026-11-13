@@ -1,11 +1,12 @@
 import { Pool } from "pg";
+import { poolConfigFromEnv } from "./aws.ts";
 
 let pool: Pool | undefined;
 
 export function getPool(): Pool {
   if (!pool) {
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      ...poolConfigFromEnv(process.env),
       max: 10,
       connectionTimeoutMillis: 2_000,
       query_timeout: 2_000,

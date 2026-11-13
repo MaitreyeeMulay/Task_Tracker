@@ -19,6 +19,7 @@ next-env.d.ts
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+*.tfplan
 crash.log
 
 # os / editor

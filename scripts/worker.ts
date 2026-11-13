@@ -4,22 +4,26 @@
 // Safe to run more than one copy: work is claimed with FOR UPDATE SKIP LOCKED.
 import { hostname } from "node:os";
 import pg from "pg";
-import { createStubProvider } from "../src/notify/provider.ts";
+import { createSesSend, poolConfigFromEnv } from "../src/lib/aws.ts";
+import { createStubProvider, type EmailProvider } from "../src/notify/provider.ts";
+import { createSesProvider } from "../src/notify/ses.ts";
 import { runOnce } from "../src/worker/worker.ts";
 
 const INTERVAL_MS = 5_000;
 // A message still "sending" after this long means its worker died mid-send.
 const LEASE_MS = 60_000;
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) throw new Error("DATABASE_URL is not set. See .env.example.");
-if ((process.env.EMAIL_PROVIDER ?? "stub") !== "stub") {
-  // The SES provider arrives with the AWS deployment (M6).
-  throw new Error("Only EMAIL_PROVIDER=stub is available until M6.");
+const providerName = process.env.EMAIL_PROVIDER ?? "stub";
+function emailProvider(): EmailProvider {
+  if (providerName === "stub") return createStubProvider().provider;
+  if (providerName !== "ses") throw new Error("EMAIL_PROVIDER must be stub or ses.");
+  const { AWS_REGION: region, EMAIL_FROM: from } = process.env;
+  if (!region || !from) throw new Error("EMAIL_PROVIDER=ses needs AWS_REGION and EMAIL_FROM.");
+  return createSesProvider({ send: createSesSend(region), from });
 }
 
-const pool = new pg.Pool({ connectionString, max: 4, connectionTimeoutMillis: 15_000 });
-const { provider } = createStubProvider();
+const pool = new pg.Pool({ ...poolConfigFromEnv(process.env), max: 4, connectionTimeoutMillis: 15_000 });
+const provider = emailProvider();
 const workerId = `${hostname()}-${process.pid}`;
 const once = process.argv.includes("--once");
 let stopping = false;
@@ -31,7 +35,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
   });
 }
 
-console.log(JSON.stringify({ event: "worker_started", worker_id: workerId, provider: "stub" }));
+console.log(JSON.stringify({ event: "worker_started", worker_id: workerId, provider: providerName }));
 while (!stopping) {
   try {
     const result = await runOnce(pool, provider, { now: new Date(), workerId, leaseMs: LEASE_MS });
