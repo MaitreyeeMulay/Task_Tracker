@@ -19,9 +19,9 @@
     "worker": "node --env-file-if-exists=.env scripts/worker.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-sesv2": "3.1159.0",
-    "@aws-sdk/rds-signer": "3.1159.0",
-    "next": "16.4.3",
+    "@aws-sdk/client-sesv2": "3.1165.0",
+    "@aws-sdk/rds-signer": "3.1165.0",
+    "next": "16.4.6",
     "openid-client": "6.8.9",
     "pg": "8.23.1",
     "react": "19.3.1",
@@ -29,15 +29,15 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@types/node": "26.6.5",
+    "@types/node": "26.6.6",
     "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "eslint": "10.13.0",
-    "eslint-config-next": "16.4.3",
+    "eslint": "10.14.0",
+    "eslint-config-next": "16.4.6",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.72.0",
-    "vitest": "5.0.5"
+    "typescript-eslint": "8.72.2",
+    "vitest": "5.1.0"
   },
   "overrides": {
     "minimatch@>=7.0.0 <11.0.1": "11.0.5"
