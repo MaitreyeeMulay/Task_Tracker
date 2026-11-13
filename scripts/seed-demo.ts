@@ -19,13 +19,13 @@ async function main(): Promise<void> {
   const client = new pg.Client({ ...poolConfigFromEnv(process.env), connectionTimeoutMillis: 15_000 });
   await client.connect();
   try {
-    const passwords = await withForcedRlsLifted(client, async () => {
+    const accountsReady = await withForcedRlsLifted(client, async () => {
       await seedCore(client);
       await seedRunbooks(client);
       await seedAdmin(client);
       return setDemoPasswords(client, password);
     });
-    console.log(JSON.stringify({ event: "demo_seed_done", passwords_set: passwords }));
+    console.log(JSON.stringify({ event: "demo_seed_done", accounts_ready: accountsReady }));
   } finally {
     await client.end();
   }
