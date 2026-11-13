@@ -1,7 +1,8 @@
 // Usage: npm run seed  (development data in DATABASE_URL; safe to run twice)
-// Refuses to run when NODE_ENV=production.
+// Refuses to run when NODE_ENV=production. The data lives in src/db/demo-data.ts.
 import pg from "pg";
 import { setPassword } from "../src/auth/login.ts";
+import { DEMO_EMAILS, seedAdmin, seedCore, seedRunbooks } from "../src/db/demo-data.ts";
 
 async function main(): Promise<void> {
   if (process.env.NODE_ENV === "production") throw new Error("refusing to seed in production");
@@ -11,11 +12,13 @@ async function main(): Promise<void> {
   const client = new pg.Client({ connectionString, connectionTimeoutMillis: 15_000 });
   await client.connect();
   try {
-    const existing = await client.query("SELECT 1 FROM users WHERE lower(email) = 'alice@example.test'");
-    if (existing.rowCount) {
-      console.log(JSON.stringify({ event: "seed_skipped", reason: "already seeded" }));
-    } else {
+    await client.query("BEGIN");
+    try {
       await seedCore(client);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
     }
     await seedRunbooks(client);
     await seedAdmin(client);
@@ -24,50 +27,6 @@ async function main(): Promise<void> {
     await client.end();
   }
 }
-
-const RUNBOOKS: { service: string; title: string; body: string }[] = [
-  {
-    service: "checkout-api",
-    title: "Checkout 5xx errors",
-    body: `# Checkout 5xx errors
-
-Customers see errors when paying. Act fast: every minute costs orders.
-
-## Diagnose
-- [ ] Open the checkout dashboard and confirm the error rate
-- [ ] Check whether a deploy went out in the last hour
-- [ ] Check the payment provider's status page
-
-## Mitigate
-- [ ] If a recent deploy is the cause, roll it back
-- [ ] Post an update in the incident channel
-
-\`\`\`
-kubectl rollout undo deployment/checkout-api
-\`\`\`
-`,
-  },
-  {
-    service: "ledger",
-    title: "Ledger disk filling up",
-    body: `# Ledger disk filling up
-
-- [ ] Find the largest directories on the volume
-- [ ] Rotate or archive old logs
-- [ ] If above 90%, expand the volume
-`,
-  },
-  {
-    service: "search-api",
-    title: "Search API down",
-    body: `# Search API down
-
-- [ ] Check the load balancer health checks
-- [ ] Restart unhealthy tasks
-- [ ] Fail over to the standby cluster if restarts do not help
-`,
-  },
-];
 
 // M5: give seeded users a password, if DEV_SEED_PASSWORD is set in .env.
 // You choose the value, so no password lives in the code or is printed.
@@ -79,7 +38,8 @@ async function seedPasswords(client: pg.Client, connectionString: string): Promi
   }
   const { rows } = await client.query<{ id: string }>(
     `SELECT id FROM users WHERE password_hash IS NULL
-     AND lower(email) IN ('alice@example.test', 'bob@example.test', 'carol@example.test', 'dana@example.test')`,
+     AND lower(email) = ANY($1)`,
+    [DEMO_EMAILS],
   );
   const pool = new pg.Pool({ connectionString, max: 2 });
   try {
@@ -91,75 +51,6 @@ async function seedPasswords(client: pg.Client, connectionString: string): Promi
     await pool.end();
   }
   console.log(JSON.stringify({ event: "seed_passwords_done", users: rows.length }));
-}
-
-// M4: an admin for Payments, who receives escalations and reviews flagged emails.
-async function seedAdmin(client: pg.Client): Promise<void> {
-  const result = await client.query(
-    `WITH u AS (INSERT INTO users (email, display_name) SELECT 'dana@example.test', 'Dana'
-                WHERE NOT EXISTS (SELECT 1 FROM users WHERE lower(email) = 'dana@example.test') RETURNING id)
-     INSERT INTO memberships (team_id, user_id, role)
-     SELECT t.id, u.id, 'admin' FROM u, teams t WHERE t.name = 'Payments'`,
-  );
-  console.log(JSON.stringify({ event: result.rowCount ? "seed_admin_done" : "seed_admin_skipped" }));
-}
-
-async function seedRunbooks(client: pg.Client): Promise<void> {
-  const count = (await client.query<{ n: number }>("SELECT count(*)::int AS n FROM runbooks")).rows[0]?.n ?? 0;
-  if (count > 0) {
-    console.log(JSON.stringify({ event: "seed_runbooks_skipped", reason: "already seeded" }));
-    return;
-  }
-  for (const rb of RUNBOOKS) {
-    await client.query(
-      `WITH r AS (INSERT INTO runbooks (team_id, service_id, title, body_md)
-                  SELECT team_id, id, $2, $3 FROM services WHERE name = $1
-                  RETURNING id, team_id)
-       INSERT INTO checklist_steps (runbook_id, team_id, sort_order, text)
-       SELECT r.id, r.team_id, s.pos, s.text FROM r CROSS JOIN LATERAL checklist_steps_from_markdown($3) s`,
-      [rb.service, rb.title, rb.body],
-    );
-  }
-  console.log(JSON.stringify({ event: "seed_runbooks_done", runbooks: RUNBOOKS.length }));
-}
-
-async function seedCore(client: pg.Client): Promise<void> {
-  try {
-    await client.query("BEGIN");
-    await client.query(`
-      WITH tp AS (INSERT INTO teams (name) VALUES ('Payments') RETURNING id),
-           ts AS (INSERT INTO teams (name) VALUES ('Search') RETURNING id),
-           ua AS (INSERT INTO users (email, display_name) VALUES ('alice@example.test', 'Alice') RETURNING id),
-           ub AS (INSERT INTO users (email, display_name) VALUES ('bob@example.test', 'Bob') RETURNING id),
-           uc AS (INSERT INTO users (email, display_name) VALUES ('carol@example.test', 'Carol') RETURNING id),
-           m AS (INSERT INTO memberships (team_id, user_id, role)
-                 SELECT (SELECT id FROM tp), (SELECT id FROM ua), 'responder'
-                 UNION ALL SELECT (SELECT id FROM tp), (SELECT id FROM ub), 'viewer'
-                 UNION ALL SELECT (SELECT id FROM ts), (SELECT id FROM uc), 'responder'),
-           sc AS (INSERT INTO services (team_id, name) SELECT id, 'checkout-api' FROM tp RETURNING id, team_id),
-           sl AS (INSERT INTO services (team_id, name) SELECT id, 'ledger' FROM tp RETURNING id, team_id),
-           ss AS (INSERT INTO services (team_id, name) SELECT id, 'search-api' FROM ts RETURNING id, team_id),
-           ig AS (INSERT INTO integrations (service_id, kind, sns_topic_arn)
-                  SELECT id, 'sns', 'arn:aws:sns:eu-west-2:123456789012:checkout-alerts' FROM sc),
-           i1 AS (INSERT INTO incidents (service_id, team_id, fingerprint, severity, title, alert_count, opened_at)
-                  SELECT id, team_id, 'seed-1', 'SEV2', 'checkout-api 5xx errors above 5%', 3, now() - interval '25 minutes' FROM sc
-                  RETURNING id, team_id),
-           i2 AS (INSERT INTO incidents (service_id, team_id, fingerprint, severity, title, opened_at)
-                  SELECT id, team_id, 'seed-2', 'SEV4', 'ledger disk 80% full', now() - interval '3 hours' FROM sl
-                  RETURNING id, team_id),
-           i3 AS (INSERT INTO incidents (service_id, team_id, fingerprint, severity, title, opened_at)
-                  SELECT id, team_id, 'seed-3', 'SEV1', 'search-api down in eu-west-2', now() - interval '10 minutes' FROM ss
-                  RETURNING id, team_id)
-      INSERT INTO incident_events (incident_id, team_id, kind)
-      SELECT id, team_id, 'alert_received' FROM i1
-      UNION ALL SELECT id, team_id, 'alert_received' FROM i2
-      UNION ALL SELECT id, team_id, 'alert_received' FROM i3`);
-    await client.query("COMMIT");
-    console.log(JSON.stringify({ event: "seed_done", teams: 2, users: 3, incidents: 3 }));
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw error;
-  }
 }
 
 main().catch((error: unknown) => {
