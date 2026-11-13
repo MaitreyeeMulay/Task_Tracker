@@ -66,7 +66,8 @@ resource "aws_iam_role_policy" "app_task" {
   policy = data.aws_iam_policy_document.app_task.json
 }
 
-# --- Migration task: pull the image, write logs, read the RDS master secret. ---
+# --- Migration task: pull the image, write logs, read the RDS master secret
+# and the demo password. ---
 
 resource "aws_iam_role" "migrate_execution" {
   name               = "${var.name}-migrate-execution"
@@ -83,10 +84,14 @@ data "aws_iam_policy_document" "migrate_execution" {
     actions   = ["secretsmanager:GetSecretValue"]
     resources = [aws_db_instance.main.master_user_secret[0].secret_arn]
   }
+  statement {
+    actions   = ["ssm:GetParameters"]
+    resources = [aws_ssm_parameter.demo_password.arn]
+  }
 }
 
 resource "aws_iam_role_policy" "migrate_execution" {
-  name   = "master-secret"
+  name   = "master-and-demo-secrets"
   role   = aws_iam_role.migrate_execution.id
   policy = data.aws_iam_policy_document.migrate_execution.json
 }

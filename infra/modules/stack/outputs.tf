@@ -10,6 +10,7 @@ output "deploy" {
     repository_url      = aws_ecr_repository.app.repository_url
     cluster             = aws_ecs_cluster.main.name
     service             = aws_ecs_service.app.name
+    demo_password_name  = aws_ssm_parameter.demo_password.name
     app_family          = aws_ecs_task_definition.app.family
     migrate_family      = aws_ecs_task_definition.migrate.family
     subnets             = join(",", aws_subnet.public[*].id)

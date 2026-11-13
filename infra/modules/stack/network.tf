@@ -2,12 +2,9 @@
 # directly: no NAT gateway, to stay within the $1 budget) and two private
 # subnets for the database and the internal load balancer.
 
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
+# Fixed zones (a and b), so the subnets never move when AWS adds a zone.
 locals {
-  azs = slice(data.aws_availability_zones.available.names, 0, 2)
+  azs = ["${data.aws_region.current.region}a", "${data.aws_region.current.region}b"]
 }
 
 resource "aws_vpc" "main" {
@@ -84,6 +81,7 @@ data "aws_ec2_managed_prefix_list" "cloudfront" {
 }
 
 resource "aws_security_group" "alb" {
+  #checkov:skip=CKV_AWS_260:Port 80 is open only to the CloudFront origin-facing prefix list, not 0.0.0.0/0 (enforced by Conftest)
   name        = "${var.name}-alb"
   description = "Internal load balancer, reached only by CloudFront VPC origins"
   vpc_id      = aws_vpc.main.id
@@ -102,6 +100,7 @@ resource "aws_security_group" "db" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "alb_from_cloudfront" {
+  #checkov:skip=CKV_AWS_260:Source is the CloudFront origin-facing prefix list, not 0.0.0.0/0
   security_group_id = aws_security_group.alb.id
   description       = "HTTP from CloudFront only"
   prefix_list_id    = data.aws_ec2_managed_prefix_list.cloudfront.id

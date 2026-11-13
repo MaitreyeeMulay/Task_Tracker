@@ -5,9 +5,6 @@ mock_provider "aws" {
   mock_data "aws_iam_policy_document" {
     defaults = { json = "{}" }
   }
-  mock_data "aws_availability_zones" {
-    defaults = { names = ["eu-west-2a", "eu-west-2b", "eu-west-2c"] }
-  }
   mock_data "aws_caller_identity" {
     defaults = { account_id = "123456789012" }
   }

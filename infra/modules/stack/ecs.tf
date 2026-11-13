@@ -62,6 +62,20 @@ resource "aws_ssm_parameter" "session_secret" {
   value = random_password.session_secret.result
 }
 
+# Password for the demo accounts created by tools/scripts/seed-demo.ts. The
+# owner reads it with: aws ssm get-parameter --with-decryption --name <name>
+resource "random_password" "demo" {
+  length  = 20
+  special = false
+}
+
+resource "aws_ssm_parameter" "demo_password" {
+  #checkov:skip=CKV_AWS_337:AWS-managed key (aws/ssm); a customer-managed KMS key costs $1/month
+  name  = "/${var.name}/demo-password"
+  type  = "SecureString"
+  value = random_password.demo.result
+}
+
 resource "aws_ecs_task_definition" "app" {
   family                   = var.name
   requires_compatibilities = ["FARGATE"]
@@ -125,7 +139,10 @@ resource "aws_ecs_task_definition" "migrate" {
       { name = "DB_AUTH", value = "secret" },
       { name = "DB_USER", value = aws_db_instance.main.username },
     ])
-    secrets          = [{ name = "DB_PASSWORD", valueFrom = "${aws_db_instance.main.master_user_secret[0].secret_arn}:password::" }]
+    secrets = [
+      { name = "DB_PASSWORD", valueFrom = "${aws_db_instance.main.master_user_secret[0].secret_arn}:password::" },
+      { name = "DEMO_SEED_PASSWORD", valueFrom = aws_ssm_parameter.demo_password.arn },
+    ]
     logConfiguration = local.logging
   }])
 }

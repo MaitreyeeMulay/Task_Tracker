@@ -56,7 +56,17 @@ Open an incident and pick a **response checklist** to tick off steps (with what 
 
 ### Infrastructure (Terraform)
 
-`infra/` holds the AWS configuration. In M0 it contains one resource: a **monthly cost budget** that emails at 50%, 80% and 100% of actual spend and 100% of forecast. It comes first so cost is guarded before anything else is deployed.
+`infra/` holds the AWS configuration:
+
+- A **monthly cost budget** ($1, applied 2026-11-13). It emails at 50%, 80% and 100% of actual spend and 100% of forecast. It came first so cost is guarded before anything else is deployed.
+- The **live stack** (M6, `infra/modules/stack`), created only when `live = true`:
+  - CloudFront in front of an internal load balancer
+  - one Fargate task running the app and the worker
+  - RDS Postgres with IAM auth
+  - a GitHub OIDC deploy role
+  - alarms that email the owner, and a dashboard
+
+  It costs about $0.08 an hour, so it runs only during a demo window. Apply with `live = false` to delete it and keep the budget.
 
 ```sh
 cd infra
@@ -66,7 +76,7 @@ terraform validate
 terraform test     # plan-only, mocked AWS provider: no credentials, nothing created
 ```
 
-Nothing has been applied. To create the budget in your own account, copy `terraform.tfvars.example` to `terraform.tfvars` (git-ignored), set your email, then run `terraform apply` with your own credentials. tflint and Checkov run in CI.
+To use your own account, copy `terraform.tfvars.example` to `terraform.tfvars` (git-ignored), set your email, then run `terraform apply` with your own credentials. tflint, Checkov and Conftest (policy as code, `policy/terraform`) run in CI.
 
 ## CI and security gates
 
@@ -101,7 +111,7 @@ A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinne
 | M3 Response checklists | Done | Living checklists: findings per step, "what fixed it" can be proposed as a step (linked to the incident) and reviewed; editable in the app |
 | M4 SLA timers, escalation, notifications | Done | Worker with durable timers and an outbox; crash tests prove nothing is lost or sent twice; email via stub until M6 |
 | M5 Security hardening | Done | Password login with lockout, OIDC, audit log + export, security headers, CSRF checks, rate limits, image scan + SBOM |
-| M6 Live AWS deployment | In progress | Short live window, then destroyed (free tier expired; $1 budget). M6-A done: IAM database auth (no app password), SES email provider. Next: Terraform (M6-B), signed-image deploy pipeline (M6-C) |
+| M6 Live AWS deployment | In progress | Short live window, then destroyed (free tier expired; $1 budget). Done: IAM database auth and SES (M6-A), live-stack Terraform with policy as code and alarms (M6-B). Next: signed-image deploy pipeline (M6-C) |
 
 ## Security
 

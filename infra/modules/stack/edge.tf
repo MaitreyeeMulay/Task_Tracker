@@ -3,6 +3,8 @@
 # nothing in the VPC accepts traffic from the internet directly.
 
 resource "aws_lb" "main" {
+  #checkov:skip=CKV2_AWS_20:Internal load balancer reached only by CloudFront over the AWS network; CloudFront redirects viewers to HTTPS
+  #checkov:skip=CKV_AWS_378:See CKV2_AWS_20; no domain for a certificate
   #checkov:skip=CKV_AWS_91:Access logs need an S3 bucket; CloudFront and app logs cover the demo window
   #checkov:skip=CKV_AWS_150:The stack is destroyed after the demo window; deletion protection would block that
   #checkov:skip=CKV2_AWS_28:Internal load balancer behind CloudFront; WAF costs at least $5/month (docs/security-decisions.md)
@@ -16,6 +18,7 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_target_group" "app" {
+  #checkov:skip=CKV_AWS_378:Load balancer to task traffic stays inside the VPC, limited by security groups
   name                 = var.name
   port                 = 3000
   protocol             = "HTTP"
