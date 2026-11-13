@@ -36,3 +36,21 @@ variable "budget_alert_email" {
     error_message = "budget_alert_email must be an email address."
   }
 }
+
+variable "live" {
+  description = "Create the live stack (M6). It costs money by the hour: keep false except during a demo window."
+  type        = bool
+  default     = false
+}
+
+variable "github_repository" {
+  description = "owner/name of the GitHub repository allowed to deploy."
+  type        = string
+  default     = "MaitreyeeMulay/Task_Tracker"
+}
+
+variable "app_image" {
+  description = "Placeholder image for the first task definitions. The deploy workflow registers signed digests; the service starts at 0 tasks."
+  type        = string
+  default     = "public.ecr.aws/docker/library/busybox:1.37.0"
+}
