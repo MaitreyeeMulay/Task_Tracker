@@ -137,6 +137,20 @@ jobs:
           docker run --rm -v "$PWD:/tf:ro"
           bridgecrew/checkov:3.3.30@sha256:4b65e89f1fde292249fc0aa0d0db43302c036dfe39f7370b2d3517571082b894
           --directory /tf --framework terraform --quiet --compact
+      - name: Install Conftest 0.71.1 (checksum pinned)
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl -sSfL --max-time 60 -o conftest.tar.gz \
+            https://github.com/open-policy-agent/conftest/releases/download/v0.71.1/conftest_0.71.1_Linux_x86_64.tar.gz
+          echo "c3f6b2a753bd56e377a1e51a95ae3e057f926f2e9139f7d5b5dfbbaf810f7985  conftest.tar.gz" | sha256sum -c -
+          tar -xzf conftest.tar.gz conftest
+      # Policy as code (SPEC): no public data stores, private endpoints, tags
+      # present. The policies' own unit tests run first.
+      - name: Policy as code (Conftest)
+        run: |
+          "$RUNNER_TEMP/conftest" verify --policy ../policy/terraform
+          find . -name '*.tf' -not -path './.terraform/*' -print0 \
+            | xargs -0 "$RUNNER_TEMP/conftest" test --parser hcl2 --policy ../policy/terraform
 
   secrets:
     name: Secret scan (gitleaks, full history)

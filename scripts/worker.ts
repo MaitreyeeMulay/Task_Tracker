@@ -35,11 +35,20 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
   });
 }
 
+// A log line per minute after a successful pass. A CloudWatch metric filter
+// counts these, and the "worker silent" alarm fires when they stop (M6).
+const HEARTBEAT_LOG_MS = 60_000;
+let lastHeartbeatLog = 0;
+
 console.log(JSON.stringify({ event: "worker_started", worker_id: workerId, provider: providerName }));
 while (!stopping) {
   try {
     const result = await runOnce(pool, provider, { now: new Date(), workerId, leaseMs: LEASE_MS });
     if (result.fired || result.sent || result.flagged) console.log(JSON.stringify({ event: "worker_pass", ...result }));
+    if (Date.now() - lastHeartbeatLog >= HEARTBEAT_LOG_MS) {
+      console.log(JSON.stringify({ event: "worker_heartbeat", worker_id: workerId }));
+      lastHeartbeatLog = Date.now();
+    }
   } catch (error) {
     // Log the code only; the next pass retries reading, never a send.
     console.error(JSON.stringify({ event: "worker_pass_failed", code: (error as { code?: string }).code ?? "unknown" }));

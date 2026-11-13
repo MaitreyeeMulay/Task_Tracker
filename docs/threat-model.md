@@ -135,8 +135,22 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | Information disclosure | Fixed body with no error text. Logs hold the error code only |
 | Denial of service | DB connect and query timeouts of 2 seconds. The pool is capped at 10 |
 
+### Live AWS stack (M6)
+
+| Threat | Mitigation | Test |
+| --- | --- | --- |
+| Direct access to the app, load balancer or database from the internet | Internal load balancer reached only through a CloudFront VPC origin; tasks accept only the load balancer; database accepts only the tasks; no ingress from any CIDR range | Terraform tests, Conftest |
+| Eavesdropping on viewers | CloudFront redirects HTTP to HTTPS; the app sets HSTS | Terraform test |
+| Swapped or tampered image | ECR tags immutable; deploys use signed digests (M6-C) | Terraform test, Conftest |
+| Stolen deploy credentials | GitHub OIDC, role trusts only the `production` environment of this repository; no stored keys | Terraform test |
+| Over-privileged tasks | Separate execution and task roles per job; `rds-db:connect` only as `tracker_app`; SES only from the one identity | Code review |
+| Spoofed client address (rate limits) | Leftmost `X-Forwarded-For` is client-controlled behind CloudFront | **Accepted gap**, see security decisions |
+| Silent failure | Alarms on 5xx, no healthy task, DB CPU and storage, worker heartbeat silence; all email the owner | Live check in M6-D |
+| Runaway cost | $1 budget with alerts at 50/80/100% and forecast; the stack is destroyed after the window | Applied 2026-11-13 |
+
 ## Change log
 
+- 2026-11-13: M6-B added the live stack (CloudFront VPC origin, internal load balancer, Fargate, RDS), GitHub OIDC deploy role, alarms and Conftest policies.
 - 2026-11-13: M6-A added IAM database auth, the `tracker_app` login role and the SES email provider.
 - 2026-10-27: added the health endpoint (T2).
 - 2026-10-27: added the migration runner, the app role and RLS closed by default (T3).
