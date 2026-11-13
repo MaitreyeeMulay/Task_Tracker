@@ -4,6 +4,7 @@ Each finding is **fixed**, **suppressed** (with a written reason) or **accepted*
 
 | Date | Finding / tool | Severity | Decision | Reason | Expiry |
 | --- | --- | --- | --- | --- | --- |
+| 2026-11-13 | One database password exists: the RDS master secret, used only by the migration task (CLAUDE.md: identities between services) | Low | Accepted | App and worker use IAM auth with no password. The owner role needs a password-based first connection to grant `rds_iam` anyway. The secret is created and rotated by RDS in Secrets Manager, read only by the migration task's execution role, injected by ECS, never logged and only sent over verified TLS | 2027-05-13 |
 | 2026-10-26 | Dev login has no lockout (design) | Medium | Accepted | M5 is out of scope. The dev login is disabled in production and only reachable locally | Before any deployment |
 | 2026-10-28 | Checkov threshold (gate design) | n/a | Changed to stricter | Free Checkov has no severities, so the gate fails on any failed check instead of only high | n/a |
 | 2026-10-28 | OSV-Scanner replaced by `npm audit --audit-level=critical` (gate design) | n/a | Accepted | Same critical threshold, and the spec allows either tool. Container OS packages are not covered until Trivy (M5, not built) | Before any deployment |

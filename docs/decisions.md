@@ -2,6 +2,16 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-13: M6 approach and M6-A (IAM database auth, SES)
+
+- **Free tier has expired** on this account (its 12-month offers ended; only always-free services remain). RDS, Fargate and public IPv4 all cost money. **The owner chose a short live window**: build and test everything for free first, then run the stack for a few hours, prove the M6 criteria, take screenshots, and destroy it. The estimate is $0.25–$0.50, under the **$1/month budget** (applied 2026-11-13, alerts at 50%, 80%, 100% and forecast 100%).
+- **Region:** eu-west-2 (London). The Identity Center portal is in eu-north-1, which doesn't affect where resources run.
+- **App and worker reach Postgres with IAM database auth** (`DB_AUTH=iam`): a fresh 15-minute token signed with the ECS task role for each connection, over TLS checked against the RDS CA bundle. No database password exists for them. They log in as `tracker_app` (migration 0012), which has **no privileges of its own** (`NOINHERIT`) and can only `SET LOCAL ROLE` into the four narrow app roles, as the code already does. DB tested.
+- **Migrations use the RDS-managed master secret** (`DB_AUTH=secret`), injected by ECS through the task's identity. RDS creates and rotates it. This is the one password in the system, and it's recorded in `docs/security-decisions.md`. The alternative, IAM auth for the owner role too, needs a password-based first connection anyway to grant `rds_iam`.
+- **SES email provider** behind the existing `EmailProvider` interface (`EMAIL_PROVIDER=ses`). **SDK retries are off** (`maxAttempts: 1`): the SDK would otherwise retry timeouts and 5xx errors, which could email someone twice. Throttling counts as a temporary refusal and is retried by the outbox policy. Known refusals fail for good. Anything else goes to human review. Logs hold ids and the error name only, never addresses or SES's message text. Unit tested with the SDK stubbed. **Not yet verified against real SES** (that happens in the live window).
+- **New dependencies:** `@aws-sdk/rds-signer` and `@aws-sdk/client-sesv2` 3.1159.0 (Apache-2.0, published by AWS from `aws/aws-sdk-js-v3`). Pinned exactly, installed with `--ignore-scripts`, and `npm audit` reports 0. **Version choice:** the newest release was a day old, so I pinned the release from 16 days earlier to lower the risk of a freshly compromised publish.
+- **Local DB tests could not run:** Postgres wasn't running on the owner's machine, and CLAUDE.md forbids starting containers. The new DB test was shown failing **in CI** (PR #25, first commit), then passing with the migration.
+
 ## 2026-11-08: M5-D image scan and SBOM in CI
 
 - **Trivy 0.76.2** scans every built image. The gate fails on a **critical vulnerability that has a fix** (`--severity CRITICAL --ignore-unfixed`), which is the SPEC threshold. A second, informational pass reports high and critical findings, and is uploaded.

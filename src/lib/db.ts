@@ -1,11 +1,15 @@
 import { Pool } from "pg";
+import { poolConfigFromEnv } from "./aws.ts";
 
 let pool: Pool | undefined;
 
 export function getPool(): Pool {
   if (!pool) {
+    // `next build` creates the pool while importing routes, with no database
+    // configured. Then connecting fails at query time, as it always has.
+    const configured = Boolean(process.env.DB_AUTH || process.env.DATABASE_URL);
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      ...(configured ? poolConfigFromEnv(process.env) : {}),
       max: 10,
       connectionTimeoutMillis: 2_000,
       query_timeout: 2_000,

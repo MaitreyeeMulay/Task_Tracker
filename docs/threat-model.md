@@ -109,6 +109,17 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | Worker over-privileged | `app_worker` role: reads what it needs to address messages, writes only timers/outbox/escalation events | DB tests |
 | Email addresses leaked in logs | Logs carry notification and incident ids only | Code review; stub logs ids only |
 | Alert spam to the wrong people | Recipients from the incident's own team only; viewers never paged | DB test |
+| Duplicate email from SDK retries (M6) | SES client built with `maxAttempts: 1`; ambiguous failures go to human review | Unit tests (classification); live check in M6-D |
+| SES error text leaks an address into logs (M6) | Only the error name is kept as the code | Unit test |
+
+### Database credentials on AWS (M6)
+
+| Threat | Mitigation | Test |
+| --- | --- | --- |
+| Stolen database password | App and worker use IAM auth tokens (15 minutes, signed with the task role). No password in config, image or logs | Unit tests (`db-connection`) |
+| Token or password sent to an impostor server | TLS with `rejectUnauthorized: true` against the RDS CA bundle; refused without a CA | Unit tests |
+| Login role over-privileged | `tracker_app`: no password, `NOINHERIT`, owns nothing, no `BYPASSRLS`; must `SET LOCAL ROLE` into an app role per transaction | DB test (`login-role`) |
+| Master secret misuse | Used only by the migration task; RDS-managed and rotated; read through the task's identity | Accepted in `security-decisions.md` |
 
 ## Security acceptance criteria per milestone
 
@@ -126,6 +137,7 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 
 ## Change log
 
+- 2026-11-13: M6-A added IAM database auth, the `tracker_app` login role and the SES email provider.
 - 2026-10-27: added the health endpoint (T2).
 - 2026-10-27: added the migration runner, the app role and RLS closed by default (T3).
 - 2026-10-27: added the Terraform skeleton and budget alert (T4).

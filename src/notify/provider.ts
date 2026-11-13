@@ -1,8 +1,8 @@
 import type { SendResult } from "../worker/policy.ts";
 
 // Email goes through this interface (CLAUDE.md: external calls behind an
-// interface with a stub for development). The real AWS SES provider is part of
-// M6, where an AWS account exists; until then the stub is used everywhere.
+// interface with a stub for development). The AWS SES provider is in ses.ts;
+// the worker picks it with EMAIL_PROVIDER=ses.
 
 export interface EmailMessage {
   notificationId: string;
