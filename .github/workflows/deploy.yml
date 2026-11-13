@@ -1,0 +1,149 @@
+name: Deploy
+
+# Manual deploy of main to the live AWS stack (M6). The "production"
+# environment requires the owner's approval and allows only main.
+#   build -> push to ECR -> sign (cosign, keyless) -> verify signature
+#   -> policy check (Conftest) -> migrate -> roll out
+# Leave `image` empty to build this commit. Set it to an existing
+# <repository>@sha256:<digest> to redeploy, or to prove that an unsigned image
+# is rejected: the signature check runs before anything changes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Existing image to deploy (<repository>@sha256:<digest>). Empty = build this commit."
+        required: false
+        default: ""
+      seed_demo:
+        description: "Load the demo data after migrating (safe to repeat)"
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build, sign, verify and deploy
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: production
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC: AWS sign-in and keyless signing
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      REPOSITORY: ${{ vars.ECR_REPOSITORY_URL }}
+      CLUSTER: ${{ vars.ECS_CLUSTER }}
+      SERVICE: ${{ vars.ECS_SERVICE }}
+      APP_FAMILY: ${{ vars.APP_FAMILY }}
+      MIGRATE_FAMILY: ${{ vars.MIGRATE_FAMILY }}
+      SUBNETS: ${{ vars.SUBNETS }}
+      SECURITY_GROUP: ${{ vars.APP_SECURITY_GROUP }}
+      INPUT_IMAGE: ${{ inputs.image }}
+      SIGNER_IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@refs/heads/main
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install cosign 3.1.4 and Conftest 0.71.1 (checksum pinned)
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl -sSfL --max-time 60 -o cosign \
+            https://github.com/sigstore/cosign/releases/download/v3.1.4/cosign-linux-amd64
+          echo "424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa  cosign" | sha256sum -c -
+          chmod +x cosign
+          curl -sSfL --max-time 60 -o conftest.tar.gz \
+            https://github.com/open-policy-agent/conftest/releases/download/v0.71.1/conftest_0.71.1_Linux_x86_64.tar.gz
+          echo "c3f6b2a753bd56e377a1e51a95ae3e057f926f2e9139f7d5b5dfbbaf810f7985  conftest.tar.gz" | sha256sum -c -
+          tar -xzf conftest.tar.gz conftest
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      # GitHub OIDC -> short-lived AWS credentials (1 hour). No stored keys.
+      - name: Sign in to AWS
+        env:
+          ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          token=$(curl -sSf --max-time 15 -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          creds=$(aws sts assume-role-with-web-identity --role-arn "$ROLE_ARN" \
+            --role-session-name "deploy-$GITHUB_RUN_ID" --web-identity-token "$token" \
+            --duration-seconds 3600 --query Credentials --output json \
+            --cli-connect-timeout 15 --cli-read-timeout 15)
+          for field in AccessKeyId SecretAccessKey SessionToken; do echo "::add-mask::$(jq -r ".$field" <<<"$creds")"; done
+          {
+            echo "AWS_ACCESS_KEY_ID=$(jq -r .AccessKeyId <<<"$creds")"
+            echo "AWS_SECRET_ACCESS_KEY=$(jq -r .SecretAccessKey <<<"$creds")"
+            echo "AWS_SESSION_TOKEN=$(jq -r .SessionToken <<<"$creds")"
+          } >> "$GITHUB_ENV"
+          aws ecr get-login-password | docker login --username AWS --password-stdin "${REPOSITORY%%/*}"
+
+      - name: Build, push and sign this commit
+        if: inputs.image == ''
+        run: |
+          docker build --pull -t "$REPOSITORY:$GITHUB_SHA" .
+          docker push "$REPOSITORY:$GITHUB_SHA"
+          image=$(docker inspect --format '{{index .RepoDigests 0}}' "$REPOSITORY:$GITHUB_SHA")
+          cosign sign --yes "$image"
+          echo "IMAGE=$image" >> "$GITHUB_ENV"
+
+      - name: Use the requested image
+        if: inputs.image != ''
+        run: echo "IMAGE=$INPUT_IMAGE" >> "$GITHUB_ENV"
+
+      # The gate: only images signed by this workflow on main can be deployed.
+      - name: Verify the image signature
+        run: |
+          case "$IMAGE" in
+            "$REPOSITORY"@sha256:*) ;;
+            *) echo "::error::Rejected: image must be $REPOSITORY@sha256:<digest>"; exit 1 ;;
+          esac
+          if ! cosign verify "$IMAGE" \
+              --certificate-identity "$SIGNER_IDENTITY" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com > /dev/null; then
+            echo "::error::Rejected: $IMAGE is not signed by the deploy workflow on main."
+            exit 1
+          fi
+          echo "Signature verified for $IMAGE"
+
+      - name: Render task definitions and check them against policy
+        run: |
+          render() {
+            aws ecs describe-task-definition --task-definition "$1" --query taskDefinition --output json \
+              | jq --arg image "$IMAGE" '.containerDefinitions |= map(.image = $image)
+                  | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities,
+                        .registeredAt, .registeredBy, .deregisteredAt)' > "$2"
+          }
+          render "$APP_FAMILY" app-task.json
+          render "$MIGRATE_FAMILY" migrate-task.json
+          conftest verify --policy policy/deploy
+          conftest test --policy policy/deploy app-task.json migrate-task.json
+
+      - name: Register task definitions
+        run: |
+          echo "APP_TASK=$(aws ecs register-task-definition --cli-input-json file://app-task.json \
+            --query taskDefinition.taskDefinitionArn --output text)" >> "$GITHUB_ENV"
+          echo "MIGRATE_TASK=$(aws ecs register-task-definition --cli-input-json file://migrate-task.json \
+            --query taskDefinition.taskDefinitionArn --output text)" >> "$GITHUB_ENV"
+
+      # One-off tasks. A failure stops the deploy and is never retried
+      # automatically (CLAUDE.md): read the logs, then decide.
+      - name: Migrate the database
+        run: scripts/deploy/run-once.sh "$MIGRATE_TASK" migrate
+
+      - name: Load demo data
+        if: inputs.seed_demo
+        run: scripts/deploy/run-once.sh "$MIGRATE_TASK" seed-demo node tools/scripts/seed-demo.ts
+
+      - name: Roll out
+        run: |
+          aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" \
+            --task-definition "$APP_TASK" --desired-count 1 > /dev/null
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"
+          echo "Deployed $IMAGE"

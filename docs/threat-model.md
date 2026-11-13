@@ -141,7 +141,10 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | --- | --- | --- |
 | Direct access to the app, load balancer or database from the internet | Internal load balancer reached only through a CloudFront VPC origin; tasks accept only the load balancer; database accepts only the tasks; no ingress from any CIDR range | Terraform tests, Conftest |
 | Eavesdropping on viewers | CloudFront redirects HTTP to HTTPS; the app sets HSTS | Terraform test |
-| Swapped or tampered image | ECR tags immutable; deploys use signed digests (M6-C) | Terraform test, Conftest |
+| Swapped or tampered image | ECR tags immutable; deploy verifies a cosign signature from this repo's deploy workflow on main before anything changes; task definitions must reference the image by digest | Terraform test, Conftest unit tests; live rejection in M6-D |
+| Non-compliant task definition | Conftest on every rendered task definition before registering it (digest-pinned image, read-only root, not privileged, no secrets in plain env) | Rego unit tests |
+| Deploy without approval | `production` environment: owner approval required, `main` only; the AWS role trusts only that environment | GitHub setting; Terraform test |
+| RLS left lifted by the demo seed | Lift and restore in one transaction under exclusive locks; any error rolls back | DB test |
 | Stolen deploy credentials | GitHub OIDC, role trusts only the `production` environment of this repository; no stored keys | Terraform test |
 | Over-privileged tasks | Separate execution and task roles per job; `rds-db:connect` only as `tracker_app`; SES only from the one identity | Code review |
 | Spoofed client address (rate limits) | Leftmost `X-Forwarded-For` is client-controlled behind CloudFront | **Accepted gap**, see security decisions |
@@ -150,6 +153,7 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 
 ## Change log
 
+- 2026-11-13: M6-C added signed-image deploys (cosign verify before any change), deploy-time Conftest, the protected production environment, and the demo seed.
 - 2026-11-13: M6-B added the live stack (CloudFront VPC origin, internal load balancer, Fargate, RDS), GitHub OIDC deploy role, alarms and Conftest policies.
 - 2026-11-13: M6-A added IAM database auth, the `tracker_app` login role and the SES email provider.
 - 2026-10-27: added the health endpoint (T2).

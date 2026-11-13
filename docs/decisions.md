@@ -2,6 +2,27 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-13: M6-C signed-image deploy pipeline and demo seed
+
+- **Deploy workflow** (`.github/workflows/deploy.yml`, manual):
+  - **Gates:** it runs only on `main`, in the `production` environment. The environment needs the owner's approval, and only the `main` branch may use it. I created it via the API before the workflow existed, because GitHub would otherwise create it on the first run with no protection.
+  - **Order of steps:** build → push to ECR → **sign with cosign 3.1.4, keyless** (a GitHub OIDC certificate, logged in Rekor) → **verify the signature** → **Conftest** on the rendered task definitions → register them → migrate → (demo seed) → roll out and wait until stable.
+- **"Deploy only signed images":** `cosign verify` must find a signature from *this repository's deploy workflow on `main`*. The workflow also takes an existing `image` digest, which is how M6-D proves that an unsigned image is rejected. The check runs before anything changes.
+- **Deploy-time policy** (`policy/deploy`, unit tested). Each container:
+  - must use this project's ECR repository **by digest**
+  - must have a read-only root filesystem
+  - must not be privileged
+  - must not carry anything that looks like a secret in plain environment variables
+- **AWS sign-in without a third-party action:** the job trades its GitHub OIDC token for 1-hour credentials with `aws sts assume-role-with-web-identity`, and masks them in the log. That's one less dependency to trust.
+- **One-off tasks never retry** (`scripts/deploy/run-once.sh`). A failed migration stops the deploy with the log location, and a person decides (CLAUDE.md).
+- **Image:** it now carries `/app/tools`: the worker, migration and seed scripts with production dependencies only, owned by root. It also carries the **public RDS CA bundle** (114 Amazon RDS root certificates, no keys, committed under `certs/`).
+- **Demo seed** (`scripts/seed-demo.ts`): it loads the dev seed's example data so there's something to log in to and screenshot.
+  - **Problem:** on RDS the database owner isn't a superuser, so `FORCE ROW LEVEL SECURITY` blocks its inserts.
+  - **Fix:** `withForcedRlsLifted` lifts FORCE, seeds and restores FORCE **in one transaction**. `ALTER TABLE` holds an exclusive lock until commit, so no other session ever sees a table without FORCE. Any error rolls everything back. This is DB tested, shown failing first in CI on PR #28.
+  - Demo passwords come from the random SSM parameter and are never printed. The dev seed now shares the same data module, and its behaviour is unchanged.
+- **Mistake:** my red commit's stub also failed lint (unused parameters), because I chained the commit after the checks with `;`. The green commit fixes it.
+- **Not yet verified on AWS:** the whole pipeline. It runs for the first time in the live window (M6-D).
+
 ## 2026-11-13: M6-B Terraform for the live stack, policy as code
 
 - **One switch:** `live = true` creates the stack (module `infra/modules/stack`). Setting it back to `false` and applying deletes everything except the budget alert. Plan-only tests with a mocked provider check that nothing exists when not live.

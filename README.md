@@ -87,7 +87,7 @@ Every push to `main` and every pull request runs two workflows. All third-party 
 | Typecheck, lint, unit tests | `tsc`, ESLint (zero warnings), Vitest | any error |
 | Database tests (Postgres) | RLS and audit tests on a Postgres 17 service container | any failure |
 | Docker image build | the production image builds; **Trivy** scans it; **Syft** writes a CycloneDX SBOM, published as a build artifact with the scan report | build error, or a critical vulnerability with a fix available |
-| Terraform | `fmt -check`, `validate`, `terraform test`, tflint, Checkov | any finding |
+| Terraform | `fmt -check`, `validate`, `terraform test`, tflint, Checkov, **Conftest** (policy as code, with Rego unit tests for `policy/terraform` and `policy/deploy`) | any finding |
 | Secret scan | gitleaks over the **full git history** (binary pinned by SHA-256) | any finding |
 | Dependency audit | `npm audit --audit-level=critical` | critical |
 
@@ -95,6 +95,7 @@ Every push to `main` and every pull request runs two workflows. All third-party 
 | --- | --- |
 | `codeql.yml` | CodeQL `security-extended` for JavaScript/TypeScript and for the workflows themselves. Also runs weekly. |
 | `dependabot.yml` | Weekly updates for npm, GitHub Actions, Docker, Compose and Terraform. |
+| `deploy.yml` | Manual, `main` only, owner approval (`production` environment). Builds, pushes to ECR, **signs with cosign**, **verifies the signature**, checks the task definitions with Conftest, migrates, then rolls out. An unsigned or non-compliant image is rejected before anything changes. |
 
 A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinned action or an undigested Docker image, lacks top-level `permissions`, uses `write-all`, or uses `pull_request_target`.
 
@@ -111,7 +112,7 @@ A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinne
 | M3 Response checklists | Done | Living checklists: findings per step, "what fixed it" can be proposed as a step (linked to the incident) and reviewed; editable in the app |
 | M4 SLA timers, escalation, notifications | Done | Worker with durable timers and an outbox; crash tests prove nothing is lost or sent twice; email via stub until M6 |
 | M5 Security hardening | Done | Password login with lockout, OIDC, audit log + export, security headers, CSRF checks, rate limits, image scan + SBOM |
-| M6 Live AWS deployment | In progress | Short live window, then destroyed (free tier expired; $1 budget). Done: IAM database auth and SES (M6-A), live-stack Terraform with policy as code and alarms (M6-B). Next: signed-image deploy pipeline (M6-C) |
+| M6 Live AWS deployment | In progress | Short live window, then destroyed (free tier expired; $1 budget). Built: IAM database auth and SES (M6-A), live-stack Terraform with policy as code and alarms (M6-B), signed-image deploy pipeline and demo seed (M6-C). Next: the live window (M6-D) |
 
 ## Security
 
