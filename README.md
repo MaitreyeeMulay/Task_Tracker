@@ -101,7 +101,7 @@ A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinne
 | M3 Response checklists | Done | Living checklists: findings per step, "what fixed it" can be proposed as a step (linked to the incident) and reviewed; editable in the app |
 | M4 SLA timers, escalation, notifications | Done | Worker with durable timers and an outbox; crash tests prove nothing is lost or sent twice; email via stub until M6 |
 | M5 Security hardening | Done | Password login with lockout, OIDC, audit log + export, security headers, CSRF checks, rate limits, image scan + SBOM |
-| M6 Live AWS deployment | Planned | Waits on the owner's AWS account (see docs/decisions.md) |
+| M6 Live AWS deployment | In progress | Short live window, then destroyed (free tier expired; $1 budget). M6-A done: IAM database auth (no app password), SES email provider. Next: Terraform (M6-B), signed-image deploy pipeline (M6-C) |
 
 ## Security
 
