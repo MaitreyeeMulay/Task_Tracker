@@ -2,6 +2,13 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-16: UI polish and a theme switch (owner request)
+
+- **Theme switch:** a header button cycles auto → dark → light. The choice is a `theme` cookie (httpOnly, SameSite=Lax, Secure in production, holds only `light` or `dark`), and the server renders `data-theme` on `<html>`. **Why a cookie, not a script:** the CSP allows no inline script, and reading the cookie on the server means no flash of the wrong theme. "Auto" still follows the system setting. Anything unexpected in the cookie means auto (`parseTheme`, unit tested).
+- **Polish:** nav with the current page highlighted (`isActivePath`, unit tested), readable dark-mode buttons (dark text on the light accent), coloured status badges, table hover, and phone layouts (header stacks, tables scroll sideways, long dropdowns stay inside their card).
+- **Empty checklist headings:** steps are shown separately, so a heading whose section held only steps was left empty. `proseBlocks` drops those (unit tested).
+- **Trade-off:** one more cookie, holding no personal data; the attack surface is unchanged.
+
 ## 2026-11-16: CodeQL action updates grouped
 
 - **Problem:** Dependabot opened one PR for `github/codeql-action/init` (#22) and one for `.../analyze` (#23). CodeQL fails when the two steps are on different versions, so both PRs failed and neither could be merged alone.

@@ -15,6 +15,22 @@ const HEADING = /^(#{1,3})\s+(.*)$/;
 const STEP = /^[-*]\s+\[[ xX]\]\s*(.*)$/;
 const LIST_ITEM = /^[-*]\s+(.*)$/;
 
+/** The blocks to show as the checklist document: no steps, no empty headings. */
+// Steps are shown separately, so a heading whose section held only steps
+// would be left empty. A section ends at the next heading of the same or
+// higher level.
+export function proseBlocks(blocks: Block[]): Block[] {
+  const prose = blocks.filter((b) => b.type !== "step");
+  return prose.filter((block, i) => {
+    if (block.type !== "heading") return true;
+    for (const after of prose.slice(i + 1)) {
+      if (after.type === "heading" && after.level <= block.level) return false;
+      if (after.type !== "heading") return true;
+    }
+    return false;
+  });
+}
+
 export function parseRunbook(markdown: string): { blocks: Block[]; steps: string[] } {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const blocks: Block[] = [];
