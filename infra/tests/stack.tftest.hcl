@@ -115,7 +115,7 @@ run "github_can_assume_the_deploy_role_only_from_the_production_environment" {
   }
 
   assert {
-    condition     = module.stack[0].deploy_role_subject == "repo:MaitreyeeMulay/Task_Tracker:environment:production"
+    condition     = module.stack[0].deploy_role_subject == "repo:MaitreyeeMulay@97637439/Task_Tracker@1435718828:environment:production"
     error_message = "the deploy role must trust only the production environment of this repository"
   }
 }
