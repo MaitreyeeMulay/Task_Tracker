@@ -6,6 +6,7 @@ Newest first. Each entry gives the decision, the reason and the trade-off.
 
 - **Deploy role trust used the wrong GitHub subject.** This repository uses immutable OIDC subjects (`repo:owner@id/name@id:...`), so the first deploy got AccessDenied before touching anything. The trust now uses the immutable form, which also survives a rename and stops a new repository reusing the name from deploying (Terraform test updated first, failed, then passed).
 - **`rds.force_ssl` drift:** it is a static parameter that AWS records as pending-reboot. Terraform now says so; the value (1) is unchanged and was in effect from creation.
+- **ECR login in the sign-in step had no credentials.** `$GITHUB_ENV` only applies to later steps, so the same-step `docker login` failed (NoCredentials). The step now exports the credentials for itself too.
 - **App-unhealthy alarm fires between `terraform apply` and the first deploy**, because the service starts at 0 tasks. Expected; it turns OK once the deploy is healthy, and it proved the alarm email path works.
 
 ## 2026-11-16: UI polish and a theme switch (owner request)
