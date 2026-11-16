@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { parseRunbook, type Block } from "@/runbooks/markdown";
+import { parseRunbook, proseBlocks, type Block } from "@/runbooks/markdown";
 import type { ChecklistStep } from "@/runbooks/repo";
 
 // Shared pieces for response checklists. Everything renders as React text:
@@ -34,7 +34,7 @@ function ProseBlock({ block }: { block: Block }) {
 export function ChecklistProse({ body }: { body: string }) {
   return (
     <>
-      {parseRunbook(body).blocks.map((block, i) => (
+      {proseBlocks(parseRunbook(body).blocks).map((block, i) => (
         <ProseBlock key={i} block={block} />
       ))}
     </>
