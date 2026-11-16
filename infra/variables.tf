@@ -44,9 +44,11 @@ variable "live" {
 }
 
 variable "github_repository" {
-  description = "owner/name of the GitHub repository allowed to deploy."
+  # The repository uses immutable OIDC subjects (owner@id/name@id), so the
+  # trust survives a rename and a new repository reusing the name cannot deploy.
+  description = "GitHub repository allowed to deploy, as its OIDC subject: owner@owner_id/name@repo_id."
   type        = string
-  default     = "MaitreyeeMulay/Task_Tracker"
+  default     = "MaitreyeeMulay@97637439/Task_Tracker@1435718828"
 }
 
 variable "app_image" {

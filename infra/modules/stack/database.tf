@@ -11,9 +11,12 @@ resource "aws_db_parameter_group" "main" {
   name   = var.name
   family = "postgres17"
 
+  # Static parameter: AWS records it as pending-reboot. It is in effect from
+  # creation because the instance starts with this group.
   parameter {
-    name  = "rds.force_ssl"
-    value = "1"
+    name         = "rds.force_ssl"
+    value        = "1"
+    apply_method = "pending-reboot"
   }
 
   parameter {
