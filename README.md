@@ -2,7 +2,7 @@
 
 Turns monitoring alerts into incidents, guides responders with runbooks and keeps an audit trail. It is built to show DevSecOps practice end to end. See [`SPEC.md`](SPEC.md).
 
-**Status:** M0 to M5 done. M7 in progress; M6 (AWS deployment) planned (see [`docs/decisions.md`](docs/decisions.md)).
+**Status:** M0 to M5 done. M6 deployed live once; 3 of its 5 acceptance checks are still open. M7 not started (see [`docs/decisions.md`](docs/decisions.md)).
 
 ## Run it locally
 
@@ -112,7 +112,7 @@ A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinne
 | M3 Response checklists | Done | Living checklists: findings per step, "what fixed it" can be proposed as a step (linked to the incident) and reviewed; editable in the app |
 | M4 SLA timers, escalation, notifications | Done | Worker with durable timers and an outbox; crash tests prove nothing is lost or sent twice; email via stub until M6 |
 | M5 Security hardening | Done | Password login with lockout, OIDC, audit log + export, security headers, CSRF checks, rate limits, image scan + SBOM |
-| M6 Live AWS deployment | In progress | Short live window, then destroyed (free tier expired; $1 budget). Built: IAM database auth and SES (M6-A), live-stack Terraform with policy as code and alarms (M6-B), signed-image deploy pipeline and demo seed (M6-C). Next: the live window (M6-D) |
+| M6 Live AWS deployment | In progress | Short live window, then destroyed (free tier expired; $1 budget). Built: IAM database auth and SES (M6-A), live-stack Terraform with policy as code and alarms (M6-B), signed-image deploy pipeline and demo seed (M6-C). Live window (M6-D) on 2026-11-16: public URL worked and a real alarm emailed (2 of 5 checks), then destroyed. Open, need another window: unsigned image rejected live, ZAP baseline, timed restore drill |
 
 ## Security
 
