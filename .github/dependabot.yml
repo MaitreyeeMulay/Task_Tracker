@@ -19,6 +19,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      # init and analyze must be on the same version or CodeQL fails
+      # (PRs #22 and #23). One group bumps them together.
+      codeql-action:
+        patterns: ["github/codeql-action*"]
 
   - package-ecosystem: docker
     directory: /

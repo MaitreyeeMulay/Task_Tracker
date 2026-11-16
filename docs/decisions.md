@@ -2,6 +2,12 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-16: CodeQL action updates grouped
+
+- **Problem:** Dependabot opened one PR for `github/codeql-action/init` (#22) and one for `.../analyze` (#23). CodeQL fails when the two steps are on different versions, so both PRs failed and neither could be merged alone.
+- **Decision:** a Dependabot group (`codeql-action`) so future bumps update both steps in one PR. Both steps moved to v4.39.3 (`33d7b85`, checked against the upstream tag). #22 and #23 are closed as replaced.
+- **Trade-off:** none for security; CodeQL stays on and gets the update.
+
 ## 2026-11-13: M6-C signed-image deploy pipeline and demo seed
 
 - **Deploy workflow** (`.github/workflows/deploy.yml`, manual):
