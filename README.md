@@ -2,7 +2,7 @@
 
 Turns monitoring alerts into incidents, guides responders with runbooks and keeps an audit trail. It is built to show DevSecOps practice end to end. See [`SPEC.md`](SPEC.md).
 
-**Status:** M0 to M5 done. M6 deployed live once; 3 of its 5 acceptance checks are still open. M7 not started (see [`docs/decisions.md`](docs/decisions.md)).
+**Status:** M0 to M6 done. M6 ran live once (2026-11-16) and was destroyed; 3 of its 5 acceptance checks are designed but were never run (see [`docs/future-work.md`](docs/future-work.md)). M7 not started (see [`docs/decisions.md`](docs/decisions.md)).
 
 ## Run it locally
 
@@ -112,7 +112,7 @@ A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinne
 | M3 Response checklists | Done | Living checklists: findings per step, "what fixed it" can be proposed as a step (linked to the incident) and reviewed; editable in the app |
 | M4 SLA timers, escalation, notifications | Done | Worker with durable timers and an outbox; crash tests prove nothing is lost or sent twice; email via stub until M6 |
 | M5 Security hardening | Done | Password login with lockout, OIDC, audit log + export, security headers, CSRF checks, rate limits, image scan + SBOM |
-| M6 Live AWS deployment | In progress | Short live window, then destroyed (free tier expired; $1 budget). Built: IAM database auth and SES (M6-A), live-stack Terraform with policy as code and alarms (M6-B), signed-image deploy pipeline and demo seed (M6-C). Live window (M6-D) on 2026-11-16: public URL worked and a real alarm emailed (2 of 5 checks), then destroyed. Open, need another window: unsigned image rejected live, ZAP baseline, timed restore drill |
+| M6 Live AWS deployment | Done, partly untested | Short live window, then destroyed (free tier expired; $1 budget). Built: IAM database auth and SES (M6-A), live-stack Terraform with policy as code and alarms (M6-B), signed-image deploy pipeline and demo seed (M6-C). Live window (M6-D) on 2026-11-16: public URL worked and a real alarm emailed (2 of 5 checks), then destroyed. Unsigned-image rejection, ZAP baseline and the restore drill are designed but **not run** (owner decision, no second window): [`docs/future-work.md`](docs/future-work.md) |
 
 ## Security
 
@@ -123,3 +123,22 @@ A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinne
 ## Verified versus untested
 
 _Every claim here is either backed by a test or marked untested. This section is filled in as milestones finish._
+
+**M0–M5** are covered by the CI gates above: unit tests, database tests on real Postgres (RLS, audit, crash and retry), Terraform tests and the Rego policy tests. They run on every pull request.
+
+**M6, live on AWS (2026-11-16, then destroyed):**
+
+| Claim | Status | Evidence |
+| --- | --- | --- |
+| Public HTTPS URL works; HTTP redirects to HTTPS | Verified live | curl against the CloudFront URL; screenshots |
+| Security headers (CSP with nonce, HSTS, frame, nosniff) | Verified live | Response headers on `/login` |
+| Database not public and unreachable from the internet | Verified live | RDS `PubliclyAccessible: false`; TCP 5432 timed out |
+| Load balancer reachable only through CloudFront | Verified live | ALB scheme `internal`; Terraform tests and Conftest |
+| Password sign-in, team-scoped data | Verified live | Signed in as a demo admin; saw only that team's incidents |
+| Image signed by the pipeline and verified before deploy | Verified live | `deploy.yml` run 43977341668: sign → verify → Conftest → migrate → roll out |
+| Migrations as a non-superuser RDS owner; app via IAM auth | Verified live | 12 migrations applied; app and worker ran with no database password |
+| An alert emails the owner | Verified live | The app-unhealthy alarm fired and emailed, then returned to OK |
+| **An unsigned image is rejected** | **Untested** | The Conftest digest rule is unit tested. The workflow's `cosign verify` rejection has no test and no unsigned deploy was attempted. See [`docs/future-work.md`](docs/future-work.md) |
+| **ZAP baseline has no high findings** | **Not built** | No ZAP job exists. Design in [`docs/future-work.md`](docs/future-work.md) |
+| **Restore time measured** | **Not run** | Point-in-time restore is enabled (1-day retention); the drill is written up but was never timed |
+| A real SES email is delivered | Untested live | The sender identity was verified and the worker started with SES, but nothing was sent |

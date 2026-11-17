@@ -2,13 +2,19 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-17: M6 closed without a second live window (owner decision)
+
+- **Decision:** the owner will not run another live window. M6 is closed with 2 of its 5 SPEC acceptance checks verified live (public URL, alert email). The other 3 (unsigned image rejected live, ZAP baseline, timed restore drill) are **designed but not run**. Procedures are in `docs/future-work.md`, and the README marks them untested.
+- **Why:** each window costs time, approvals and a little money. The pipeline, the infrastructure and the security controls are already proven against real AWS.
+- **Trade-off:** there is no live evidence for those three claims. The unsigned-image gate is the strongest of them: the Conftest digest rule is unit tested, but the workflow's rejection branch has no test and was never triggered. ZAP is the weakest, because no job was built. This is recorded as accepted in `docs/security-decisions.md`.
+
 ## 2026-11-16: M6-D findings during the live window
 
 - **Deploy role trust used the wrong GitHub subject.** This repository uses immutable OIDC subjects (`repo:owner@id/name@id:...`), so the first deploy got AccessDenied before touching anything. The trust now uses the immutable form, which also survives a rename and stops a new repository reusing the name from deploying (Terraform test updated first, failed, then passed).
 - **`rds.force_ssl` drift:** it is a static parameter that AWS records as pending-reboot. Terraform now says so; the value (1) is unchanged and was in effect from creation.
 - **ECR login in the sign-in step had no credentials.** `$GITHUB_ENV` only applies to later steps, so the same-step `docker login` failed (NoCredentials). The step now exports the credentials for itself too.
 - **Verified on real AWS:** HTTPS through CloudFront (HTTP redirects), every security header present, database not publicly accessible and port 5432 unreachable from the internet, internal load balancer, password sign-in as a demo user, all 12 migrations as the non-superuser RDS owner, demo seed under forced RLS, worker started with SES, image signed and verified with cosign, deploy-time Conftest passed.
-- **SPEC M6 acceptance (5 checks):** public URL works ✅; test alert emails ✅ (the app-unhealthy alarm fired before the first deploy and emailed). **Not run, so M6 is not done:** unsigned image rejected on the live stack, ZAP baseline with no high findings, timed restore drill. A real SES send was not exercised either. These need a second live window.
+- **SPEC M6 acceptance (5 checks):** public URL works ✅; test alert emails ✅ (the app-unhealthy alarm fired before the first deploy and emailed). **Not run, so M6 is not done:** unsigned image rejected on the live stack, ZAP baseline with no high findings, timed restore drill. A real SES send was not exercised either. These are now written up in `docs/future-work.md` (see 2026-11-17).
 - **Placeholder task during the first rollout:** ECS briefly started task definition revision 1 (the busybox placeholder from Terraform), which failed to start because it has no `node`; it never received traffic and the signed revision took over. Harmless; noted so the log line is not a surprise next time.
 - **Destroyed** the same evening with `terraform apply` of a `live = false` plan (63 destroyed); only the $1 budget remains. RDS creates its own log group outside Terraform; it was empty and was deleted by hand. Next time: manage it in Terraform with a retention period. The GitHub `production` environment variables were removed too.
 - **App-unhealthy alarm fires between `terraform apply` and the first deploy**, because the service starts at 0 tasks. Expected; it turns OK once the deploy is healthy, and it proved the alarm email path works.
