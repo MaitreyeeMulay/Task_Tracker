@@ -155,6 +155,7 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 
 ## Change log
 
+- 2026-11-19: M7. The runtime image has no package manager (npm removed, which cleared 6 HIGH findings), and the Trivy gate fails on high. Users' audit rows can only name their own teams (migration 0013). Accepted: stateless sessions can't be revoked one at a time.
 - 2026-11-17: M6 closed. The live window (2026-11-16) verified the network isolation, HTTPS, headers, signed deploys and alarm email. The unsigned-image rejection, ZAP and the restore drill were not run; they are recorded as gaps.
 - 2026-11-16: the deploy role trusts the immutable GitHub OIDC subject. A theme cookie (httpOnly, holds no personal data) was added.
 - 2026-11-13: M6-C added signed-image deploys (cosign verify before any change), deploy-time Conftest, the protected production environment, and the demo seed.

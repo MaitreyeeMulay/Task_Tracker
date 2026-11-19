@@ -167,6 +167,16 @@ describe("team scoping (writes)", () => {
       expect((await dbError(client, insert, [w.bob, w.payments]))?.code).toBe(INSUFFICIENT_PRIVILEGE);
     });
   });
+
+  it("audit rows can only name the user's own teams (or no team)", async () => {
+    await inRollback(client, async () => {
+      const w = await seed();
+      await asUser(w.alice);
+      const insert = `INSERT INTO audit_log (actor_user_id, team_id, action, entity_type, entity_id) VALUES ($1, $2, 'x', 'incident', '1')`;
+      expect(await dbError(client, insert, [w.alice, null])).toBeNull();
+      expect((await dbError(client, insert, [w.alice, w.search]))?.code).toBe(INSUFFICIENT_PRIVILEGE);
+    });
+  });
 });
 
 describe("asUserInTransaction", () => {
