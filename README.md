@@ -2,7 +2,7 @@
 
 Turns monitoring alerts into incidents, guides responders with runbooks and keeps an audit trail. It is built to show DevSecOps practice end to end. See [`SPEC.md`](SPEC.md).
 
-**Status:** M0 to M5 done. M7 in progress; M6 (AWS deployment) planned (see [`docs/decisions.md`](docs/decisions.md)).
+**Status:** M0 to M7 done. M6 ran live once (2026-11-16) and was destroyed; 3 of its 5 acceptance checks are designed but were never run (see [`docs/future-work.md`](docs/future-work.md)). Decisions are in [`docs/decisions.md`](docs/decisions.md), and every control's status is in the [security report](docs/security-report.md).
 
 ## Run it locally
 
@@ -15,17 +15,23 @@ npm run lint        # ESLint, zero warnings allowed
 npm test            # unit tests (Vitest)
 ```
 
+`npm ci` may warn that the install script of `unrs-resolver` was not run. That's expected: this project doesn't run install scripts, and lint works without it.
+
 ### Docker stack
 
 ```sh
-cp .env.example .env          # then set POSTGRES_PASSWORD (and DATABASE_URL to match)
+cp .env.example .env          # then replace every change-me value (see below)
 docker compose up -d --build  # Postgres 17 + app, bound to 127.0.0.1 only
-curl -m 15 http://127.0.0.1:3000/api/health
+curl -m 15 http://127.0.0.1:3000/api/health   # give the app a few seconds to start
 # {"status":"ok","db":"ok"}  -> HTTP 200
 # {"status":"degraded","db":"down"} -> HTTP 503 when Postgres is unreachable
 ```
 
-The image is a multi-stage build that runs as the non-root `node` user. The base images are pinned by digest, and dependencies are installed with `--ignore-scripts`. The first start of the `db` volume also creates `incident_tracker_test` for the database tests.
+In `.env`, use the same long random value for `POSTGRES_PASSWORD` and inside `DATABASE_URL`, and 32+ random characters for `SESSION_SECRET`. For example, `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"` prints one.
+
+The compose `app` is the production image. Use it to check the image and the health endpoint; it has no session secret, so its login page says sign-in is not configured. To use the app, run it with `npm run dev` (below).
+
+The image is a multi-stage build that runs as the non-root `node` user. The base images are pinned by digest, and dependencies are installed with `--ignore-scripts`. The runtime image has no package manager. The first start of the `db` volume also creates `incident_tracker_test` for the database tests.
 
 ### Migrations and database tests
 
@@ -38,14 +44,17 @@ npm run test:db   # needs the compose db running: docker compose up -d db
 - The runner refuses to continue if an applied file was edited or deleted, or if a new file is older than the latest applied one. An advisory lock stops two runners from overlapping.
 - Database tests use `<db>_test`, derived from `DATABASE_URL` or set with `TEST_DATABASE_URL`. They refuse any database whose name doesn't end in `_test`. Each test runs in a transaction that is rolled back.
 
-**What the database tests prove (M0):**
+**What the database tests prove** (`test/db/`, 142 tests):
 - The app role `app_rw` is not a superuser, cannot bypass RLS and owns no tables.
-- Every table has RLS enabled and forced. With no policies yet, the app role reads 0 rows and cannot insert.
-- `audit_log` is append-only: the app role can insert but not read, update or delete it. Update, delete and truncate are blocked by a trigger, even for the owner.
+- Every table has RLS enabled and forced, closed by default: with no user set, the app role reads 0 rows and cannot insert.
+- Team scoping: a user sees only their teams' data, and a Viewer cannot write.
+- `audit_log` is append-only. Users can only add rows as themselves, for their own teams, and only team admins can read them. Update, delete and truncate are blocked by a trigger, even for the owner.
+- Login lockout, OIDC sign-in, alert ingestion end to end, and the worker's crash tests (nothing lost or sent twice).
 
 ### Try the app (M2)
 
 ```sh
+docker compose stop app           # frees port 3000; the database keeps running
 npm run migrate && npm run seed   # sample teams, users and incidents (dev only)
 npm run dev                       # then open http://localhost:3000
 npm run worker                    # SLA timers, escalation and email (stub); Ctrl+C to stop
@@ -66,7 +75,7 @@ Open an incident and pick a **response checklist** to tick off steps (with what 
   - a GitHub OIDC deploy role
   - alarms that email the owner, and a dashboard
 
-  It costs about $0.08 an hour, so it runs only during a demo window. Apply with `live = false` to delete it and keep the budget.
+  It costs an estimated $0.08 an hour, so it runs only during a demo window. Apply with `live = false` to delete it and keep the budget.
 
 ```sh
 cd infra
@@ -80,13 +89,13 @@ To use your own account, copy `terraform.tfvars.example` to `terraform.tfvars` (
 
 ## CI and security gates
 
-Every push to `main` and every pull request runs two workflows. All third-party actions are pinned to a commit SHA. The token is read-only by default, and only the CodeQL job gets `security-events: write`.
+Every push to `main` and every pull request runs two workflows. All third-party actions are pinned to a commit SHA. The token is read-only by default; only the CodeQL job gets `security-events: write`, and only the manual deploy job gets `id-token: write` (for AWS sign-in).
 
 | Job (`.github/workflows/ci.yml`) | What it checks | Fails on |
 | --- | --- | --- |
 | Typecheck, lint, unit tests | `tsc`, ESLint (zero warnings), Vitest | any error |
 | Database tests (Postgres) | RLS and audit tests on a Postgres 17 service container | any failure |
-| Docker image build | the production image builds; **Trivy** scans it; **Syft** writes a CycloneDX SBOM, published as a build artifact with the scan report | build error, or a critical vulnerability with a fix available |
+| Docker image build | the production image builds; it has no package manager (npm, npx, corepack); **Trivy** scans it; **Syft** writes a CycloneDX SBOM, published as a build artifact with the scan report | build error, a package manager in the image, or a high or critical vulnerability with a fix available |
 | Terraform | `fmt -check`, `validate`, `terraform test`, tflint, Checkov, **Conftest** (policy as code, with Rego unit tests for `policy/terraform` and `policy/deploy`) | any finding |
 | Secret scan | gitleaks over the **full git history** (binary pinned by SHA-256) | any finding |
 | Dependency audit | `npm audit --audit-level=critical` | critical |
@@ -95,7 +104,7 @@ Every push to `main` and every pull request runs two workflows. All third-party 
 | --- | --- |
 | `codeql.yml` | CodeQL `security-extended` for JavaScript/TypeScript and for the workflows themselves. Also runs weekly. |
 | `dependabot.yml` | Weekly updates for npm, GitHub Actions, Docker, Compose and Terraform. |
-| `deploy.yml` | Manual, `main` only, owner approval (`production` environment). Builds, pushes to ECR, **signs with cosign**, **verifies the signature**, checks the task definitions with Conftest, migrates, then rolls out. An unsigned or non-compliant image is rejected before anything changes. |
+| `deploy.yml` | Manual, `main` only, owner approval (`production` environment). Builds, pushes to ECR, **signs with cosign**, **verifies the signature**, checks the task definitions with Conftest, migrates, then rolls out. An unsigned or non-compliant image is designed to be rejected before anything changes (the unsigned case was never run; see *Verified versus untested*). |
 
 A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinned action or an undigested Docker image, lacks top-level `permissions`, uses `write-all`, or uses `pull_request_target`.
 
@@ -110,16 +119,37 @@ A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinne
 | M1 Ingestion | Done | `POST /api/ingest/sns/{id}`: verified CloudWatch alarms open incidents, duplicates join them |
 | M2 Incidents and team scoping | Done | Login, incident list and detail, status changes, timeline; RLS proves team isolation |
 | M3 Response checklists | Done | Living checklists: findings per step, "what fixed it" can be proposed as a step (linked to the incident) and reviewed; editable in the app |
-| M4 SLA timers, escalation, notifications | Done | Worker with durable timers and an outbox; crash tests prove nothing is lost or sent twice; email via stub until M6 |
+| M4 SLA timers, escalation, notifications | Done | Worker with durable timers and an outbox; crash tests prove nothing is lost or sent twice; email via a stub locally and Amazon SES on AWS (a real SES send was never exercised) |
 | M5 Security hardening | Done | Password login with lockout, OIDC, audit log + export, security headers, CSRF checks, rate limits, image scan + SBOM |
-| M6 Live AWS deployment | In progress | Short live window, then destroyed (free tier expired; $1 budget). Built: IAM database auth and SES (M6-A), live-stack Terraform with policy as code and alarms (M6-B), signed-image deploy pipeline and demo seed (M6-C). Next: the live window (M6-D) |
+| M6 Live AWS deployment | Done, partly untested | Short live window, then destroyed (free tier expired; $1 budget). Built: IAM database auth and SES (M6-A), live-stack Terraform with policy as code and alarms (M6-B), signed-image deploy pipeline and demo seed (M6-C). Live window (M6-D) on 2026-11-16: public URL worked and a real alarm emailed (2 of 5 checks), then destroyed. Unsigned-image rejection, ZAP baseline and the restore drill are designed but **not run** (owner decision, no second window): [`docs/future-work.md`](docs/future-work.md) |
+| M7 Review and report | Done | Code review pass (one RLS hardening, migration 0013), runtime image without a package manager (6 HIGH cleared, Trivy gate at high), [security report](docs/security-report.md), README checked by a fresh-clone run |
 
 ## Security
 
+- **Security report** (every control with its status, every finding): [`docs/security-report.md`](docs/security-report.md)
 - Threat model: [`docs/threat-model.md`](docs/threat-model.md)
 - Security decisions: [`docs/security-decisions.md`](docs/security-decisions.md)
 - Reporting: [`SECURITY.md`](SECURITY.md)
 
 ## Verified versus untested
 
-_Every claim here is either backed by a test or marked untested. This section is filled in as milestones finish._
+_Every claim here is either backed by a test or marked untested._
+
+**M0–M5** are covered by the CI gates above: unit tests, database tests on real Postgres (RLS, audit, crash and retry), Terraform tests and the Rego policy tests. They run on every pull request. The few controls that rely on review instead of a test (ids-only logging outside ingestion, timeouts on external calls, the Dockerfile base-image digest) are marked **Manual** in the [security report](docs/security-report.md).
+
+**M6, live on AWS (2026-11-16, then destroyed):**
+
+| Claim | Status | Evidence |
+| --- | --- | --- |
+| Public HTTPS URL works; HTTP redirects to HTTPS | Verified live | curl against the CloudFront URL; screenshots |
+| Security headers (CSP with nonce, HSTS, frame, nosniff) | Verified live | Response headers on `/login` |
+| Database not public and unreachable from the internet | Verified live | RDS `PubliclyAccessible: false`; TCP 5432 timed out |
+| Load balancer reachable only through CloudFront | Verified live | ALB scheme `internal`; Terraform tests and Conftest |
+| Password sign-in, team-scoped data | Verified live | Signed in as a demo admin; saw only that team's incidents |
+| Image signed by the pipeline and verified before deploy | Verified live | `deploy.yml` run 43977341668: sign → verify → Conftest → migrate → roll out |
+| Migrations as a non-superuser RDS owner; app via IAM auth | Verified live | 12 migrations applied; app and worker ran with no database password |
+| An alert emails the owner | Verified live | The app-unhealthy alarm fired and emailed, then returned to OK |
+| **An unsigned image is rejected** | **Untested** | The Conftest digest rule is unit tested. The workflow's `cosign verify` rejection has no test and no unsigned deploy was attempted. See [`docs/future-work.md`](docs/future-work.md) |
+| **ZAP baseline has no high findings** | **Not built** | No ZAP job exists. Design in [`docs/future-work.md`](docs/future-work.md) |
+| **Restore time measured** | **Not run** | Point-in-time restore is enabled (1-day retention); the drill is written up but was never timed |
+| A real SES email is delivered | Untested live | The sender identity was verified and the worker started with SES, but nothing was sent |

@@ -141,18 +141,23 @@ GitHub Actions -> build, scan, (later: sign, deploy to AWS via OIDC)
 | --- | --- | --- |
 | Direct access to the app, load balancer or database from the internet | Internal load balancer reached only through a CloudFront VPC origin; tasks accept only the load balancer; database accepts only the tasks; no ingress from any CIDR range | Terraform tests, Conftest |
 | Eavesdropping on viewers | CloudFront redirects HTTP to HTTPS; the app sets HSTS | Terraform test |
-| Swapped or tampered image | ECR tags immutable; deploy verifies a cosign signature from this repo's deploy workflow on main before anything changes; task definitions must reference the image by digest | Terraform test, Conftest unit tests; live rejection in M6-D |
+| Swapped or tampered image | ECR tags immutable; deploy verifies a cosign signature from this repo's deploy workflow on main before anything changes; task definitions must reference the image by digest | Terraform test, Conftest unit tests. Signing and verification ran live (2026-11-16); a live rejection of an unsigned image was **not run** (`docs/future-work.md`) |
 | Non-compliant task definition | Conftest on every rendered task definition before registering it (digest-pinned image, read-only root, not privileged, no secrets in plain env) | Rego unit tests |
 | Deploy without approval | `production` environment: owner approval required, `main` only; the AWS role trusts only that environment | GitHub setting; Terraform test |
 | RLS left lifted by the demo seed | Lift and restore in one transaction under exclusive locks; any error rolls back | DB test |
-| Stolen deploy credentials | GitHub OIDC, role trusts only the `production` environment of this repository; no stored keys | Terraform test |
+| Stolen deploy credentials | GitHub OIDC, role trusts only the `production` environment of this repository, by its immutable subject (owner and repo ids), so a renamed or re-created repository cannot deploy; no stored keys | Terraform test; verified live |
 | Over-privileged tasks | Separate execution and task roles per job; `rds-db:connect` only as `tracker_app`; SES only from the one identity | Code review |
 | Spoofed client address (rate limits) | Leftmost `X-Forwarded-For` is client-controlled behind CloudFront | **Accepted gap**, see security decisions |
-| Silent failure | Alarms on 5xx, no healthy task, DB CPU and storage, worker heartbeat silence; all email the owner | Live check in M6-D |
+| Silent failure | Alarms on 5xx, no healthy task, DB CPU and storage, worker heartbeat silence; all email the owner | Verified live 2026-11-16: the app-unhealthy alarm emailed and returned to OK |
 | Runaway cost | $1 budget with alerts at 50/80/100% and forecast; the stack is destroyed after the window | Applied 2026-11-13 |
+| Dynamic scan finds a web vulnerability | Security headers and CSP in place; no ZAP baseline was ever run | **Accepted gap**, see security decisions and `docs/future-work.md` |
+| Data loss | RDS automated backups (1 day), point-in-time restore | Restore drill **not run** (`docs/future-work.md`) |
 
 ## Change log
 
+- 2026-11-19: M7. The runtime image has no package manager (npm removed, which cleared 6 HIGH findings), and the Trivy gate fails on high. Users' audit rows can only name their own teams (migration 0013). Accepted: stateless sessions can't be revoked one at a time.
+- 2026-11-17: M6 closed. The live window (2026-11-16) verified the network isolation, HTTPS, headers, signed deploys and alarm email. The unsigned-image rejection, ZAP and the restore drill were not run; they are recorded as gaps.
+- 2026-11-16: the deploy role trusts the immutable GitHub OIDC subject. A theme cookie (httpOnly, holds no personal data) was added.
 - 2026-11-13: M6-C added signed-image deploys (cosign verify before any change), deploy-time Conftest, the protected production environment, and the demo seed.
 - 2026-11-13: M6-B added the live stack (CloudFront VPC origin, internal load balancer, Fargate, RDS), GitHub OIDC deploy role, alarms and Conftest policies.
 - 2026-11-13: M6-A added IAM database auth, the `tracker_app` login role and the SES email provider.
