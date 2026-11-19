@@ -84,6 +84,10 @@ Each milestone ends with something runnable and tested.
 
 **Scope update (2026-11-01):** M3 was briefly cut, then re-added by the owner the same day. The build covers M0 to M3.
 
+**Scope update (2026-11-08):** the owner approved building M4, M5 and M7.
+
+**Scope update (2026-11-19):** M0 to M7 are built. M6 ran live once (2026-11-16) and was destroyed. Three of its acceptance checks (unsigned image rejected, ZAP baseline, timed restore) were never run, by the owner's decision on 2026-11-17. They are documented in `docs/future-work.md` and marked untested.
+
 | # | Deliverable | Done when |
 | --- | --- | --- |
 | M0 | Repo, rules file, CI, local Docker stack, health check, first migration, branch protection, secret scanning, Dependabot, pinned actions, minimal token permissions, threat model started | CI is green: typecheck, tests, image build, IaC compile and lint, secret scan |
@@ -137,7 +141,7 @@ Two environments (staging and production) if the budget allows, otherwise one wi
 
 ## Risks
 
-- **Scope.** Build M0 to M3. M4 to M6 are designed only, and M7 is polish.
+- **Scope.** Originally: build M0 to M3, design M4 to M6, and M7 as polish. All of M0 to M7 were built in the end (see the scope updates above).
 - **Cost.** Set a budget alert before deploying anything.
 - **Account friction.** If the deployment is blocked, finish M0 to M5 locally and document the deploy plan clearly.
 - **Scanner noise.** Triage every finding in writing: fix it, suppress it with a reason, or accept it with an expiry date. Never switch a scanner off to make the build pass.
