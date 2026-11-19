@@ -25,6 +25,11 @@ COPY src ./src
 COPY migrations ./migrations
 
 FROM ${NODE_IMAGE} AS runtime
+# The runtime only runs node. The bundled npm, npx and corepack are attack
+# surface and carried all 6 HIGH Trivy findings (M7), so they are removed.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+    /opt/yarn* /usr/local/bin/yarn /usr/local/bin/yarnpkg
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

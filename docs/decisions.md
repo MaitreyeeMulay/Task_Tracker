@@ -2,6 +2,12 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-19: M7 runtime image without a package manager; Trivy gate at HIGH
+
+- **Finding:** all 6 HIGH Trivy findings (`undici` ×4, `brace-expansion` ×2) were in the npm CLI bundled with the Node base image, not in the app's dependencies.
+- **Decision:** the runtime stage deletes npm, npx, corepack and yarn. The app, worker, migrations and demo seed only run `node`. A CI step fails if a package manager is back in the image (shown failing first), and the Trivy gate now fails on **high** and critical findings that have a fix (SPEC only asks for critical).
+- **Trade-off:** you can't `npm` inside a running container to debug it; rebuild instead. A HIGH finding with a fix now blocks merges, which may need a quick base-image or dependency bump.
+
 ## 2026-11-17: M6 closed without a second live window (owner decision)
 
 - **Decision:** the owner will not run another live window. M6 is closed with 2 of its 5 SPEC acceptance checks verified live (public URL, alert email). The other 3 (unsigned image rejected live, ZAP baseline, timed restore drill) are **designed but not run**. Procedures are in `docs/future-work.md`, and the README marks them untested.

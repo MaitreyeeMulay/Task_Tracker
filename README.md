@@ -86,7 +86,7 @@ Every push to `main` and every pull request runs two workflows. All third-party 
 | --- | --- | --- |
 | Typecheck, lint, unit tests | `tsc`, ESLint (zero warnings), Vitest | any error |
 | Database tests (Postgres) | RLS and audit tests on a Postgres 17 service container | any failure |
-| Docker image build | the production image builds; **Trivy** scans it; **Syft** writes a CycloneDX SBOM, published as a build artifact with the scan report | build error, or a critical vulnerability with a fix available |
+| Docker image build | the production image builds; it has no package manager (npm, npx, corepack); **Trivy** scans it; **Syft** writes a CycloneDX SBOM, published as a build artifact with the scan report | build error, a package manager in the image, or a high or critical vulnerability with a fix available |
 | Terraform | `fmt -check`, `validate`, `terraform test`, tflint, Checkov, **Conftest** (policy as code, with Rego unit tests for `policy/terraform` and `policy/deploy`) | any finding |
 | Secret scan | gitleaks over the **full git history** (binary pinned by SHA-256) | any finding |
 | Dependency audit | `npm audit --audit-level=critical` | critical |
