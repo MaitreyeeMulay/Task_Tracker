@@ -2,6 +2,12 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-19: Project complete (owner decision)
+
+- **Decision:** the project is finished. M0 to M7 are done; nothing is deployed, and only the $1 budget remains in AWS.
+- **Accepted risks with dates in `security-decisions.md`:** these were set while the project was active. They are not being worked on. If the project is picked up again, review every row first, starting with those dated 2026-12-31: the `X-Forwarded-For` rate-limit gap, the TypeScript Dependabot ignore, and the `minimatch` override review. Rows tied to "before any further deployment" stay binding for any new deployment.
+- **Dependabot:** #30 (AWS provider 6.73) was merged. #10 (Postgres 18) was closed, because a major upgrade is out of scope.
+
 ## 2026-11-19: M7 README checked by a fresh-clone run; M7 done
 
 - **Method:** cloned `main` into an empty folder and followed the README word for word: `npm ci`, typecheck, lint, unit tests, `.env` from the example, `docker compose up -d --build`, health check, migrate, database tests, seed, `npm run dev`. All passed: 274 unit tests and 142 database tests.

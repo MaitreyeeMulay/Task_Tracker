@@ -2,6 +2,8 @@
 
 Each finding is **fixed**, **suppressed** (with a written reason) or **accepted** (with an expiry date). Target fix times: critical within 7 days, high within 30 days.
 
+> **Project complete (2026-11-19).** The expiry dates below were set while the project was active and are not being tracked. Review every row before reusing the code or deploying it again.
+
 | Date | Finding / tool | Severity | Decision | Reason | Expiry |
 | --- | --- | --- | --- | --- | --- |
 | 2026-11-19 | M7 code review: app_rw could write audit rows into any team's trail (as itself) | Low | **Fixed** (migration 0013) | Not reachable through the app, which only audits teams the user acts in, but the database now refuses it too: the team must be one of the user's, or none. DB test written first and shown failing | n/a |
