@@ -81,10 +81,20 @@ jobs:
             https://github.com/anchore/syft/releases/download/v1.57.0/syft_1.57.0_linux_amd64.tar.gz
           echo "9c077a7d43029b3b13e98a8db720661e700c4d58db6352153a06395ae4a2a704  syft.tar.gz" | sha256sum -c -
           tar -xzf syft.tar.gz syft
-      # Gate (SPEC): fail on a critical vulnerability that has a fix available.
+      # The runtime image only runs node; a package manager is attack surface
+      # (and brought all 6 HIGH findings in M7).
+      - name: Runtime image has no package manager
+        run: |
+          if docker run --rm --entrypoint sh incident-tracker:${{ github.sha }} -c \
+              'command -v npm || command -v npx || command -v corepack || ls -d /usr/local/lib/node_modules/npm 2>/dev/null'; then
+            echo "::error::npm, npx or corepack is present in the runtime image"
+            exit 1
+          fi
+      # Gate: fail on a high or critical vulnerability that has a fix available
+      # (SPEC asks for critical; raised to high in M7).
       - name: Image scan (Trivy)
         run: >-
-          ${{ runner.temp }}/trivy image --no-progress --severity CRITICAL --ignore-unfixed --exit-code 1
+          ${{ runner.temp }}/trivy image --no-progress --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
           incident-tracker:${{ github.sha }}
       - name: Image scan report (all severities, informational)
         if: always()
