@@ -2,6 +2,31 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-19: M7 code review pass
+
+- **Scope:** every security-relevant path, read against CLAUDE.md:
+  - sign-in: password, lockout, OIDC, sessions, the flow cookie
+  - CSRF and the proxy
+  - every server action and route
+  - row-level security and the grants in all migrations
+  - SNS verification and the SSRF guard
+  - the worker's outbox and retry rules
+  - logging, and SQL built from strings
+  The UI and the tests were skimmed.
+- **Clean:**
+  - Every write runs as `app_rw` with the user's id, and RLS decides.
+  - No SQL is built from input; every interpolation is a fixed constant.
+  - No raw HTML or eval.
+  - Logs carry ids and counts only.
+  - External calls have timeouts and an interface with a stub.
+  - Ambiguous email sends go to a person and are never retried.
+  - Unknown config falls back to production settings.
+- **Fixed:** audit rows written by users can only name their own teams (migration 0013, DB test first).
+- **Accepted, recorded in security-decisions:**
+  - Stateless sessions can't be revoked one at a time.
+  - The CSRF check lets through requests with neither `Origin` nor `Sec-Fetch-Site`.
+- **Minor, left as is:** the audit export spots a non-admin by the error message text. It works and is tested, but it's brittle if the message changes.
+
 ## 2026-11-19: M7 runtime image without a package manager; Trivy gate at HIGH
 
 - **Finding:** all 6 HIGH Trivy findings (`undici` ×4, `brace-expansion` ×2) were in the npm CLI bundled with the Node base image, not in the app's dependencies.
