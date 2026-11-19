@@ -2,7 +2,7 @@
 
 Turns monitoring alerts into incidents, guides responders with runbooks and keeps an audit trail. It is built to show DevSecOps practice end to end. See [`SPEC.md`](SPEC.md).
 
-**Status:** M0 to M7 done. M6 ran live once (2026-11-16) and was destroyed; 3 of its 5 acceptance checks are designed but were never run (see [`docs/future-work.md`](docs/future-work.md)). Decisions are in [`docs/decisions.md`](docs/decisions.md), and every control's status is in the [security report](docs/security-report.md).
+**Status:** complete (2026-11-19). M0 to M7 done. M6 ran live once (2026-11-16) and was destroyed; 3 of its 5 acceptance checks are designed but were never run (see [`docs/future-work.md`](docs/future-work.md)). Decisions are in [`docs/decisions.md`](docs/decisions.md), and every control's status is in the [security report](docs/security-report.md).
 
 ## Run it locally
 
