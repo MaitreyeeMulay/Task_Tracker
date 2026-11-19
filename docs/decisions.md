@@ -2,6 +2,22 @@
 
 Newest first. Each entry gives the decision, the reason and the trade-off.
 
+## 2026-11-19: M7 README checked by a fresh-clone run; M7 done
+
+- **Method:** cloned `main` into an empty folder and followed the README word for word: `npm ci`, typecheck, lint, unit tests, `.env` from the example, `docker compose up -d --build`, health check, migrate, database tests, seed, `npm run dev`. All passed: 274 unit tests and 142 database tests.
+- **Problems a stranger would hit, now fixed in the README:**
+  - The compose app and `npm run dev` both want port 3000. The README now stops the compose app first.
+  - The compose app is the production image with no session secret, so its login says sign-in is not configured. The README now says what it's for.
+  - The health check fails for the first few seconds after start.
+  - It didn't say how to make the random values for `.env`.
+  - npm prints an unexplained warning about a skipped install script.
+- **Next.js wrote an `AGENTS.md` into the repo on every `next dev`.** It's now switched off (`agentRules: false`), and checked: no file appears.
+- **Claims audit:**
+  - "What the database tests prove" was stuck at M0, and two of its lines were false now. Rewritten.
+  - Three overstated claims qualified: the unsigned-image rejection, SES email, and the hourly cost (an estimate).
+  - The *Verified versus untested* section points to the security report for the controls that rely on review instead of a test.
+- **SPEC.md:** dated scope updates (2026-11-08, 2026-11-19) added, keeping the original scope lines, as the owner approved.
+
 ## 2026-11-19: M7 code review pass
 
 - **Scope:** every security-relevant path, read against CLAUDE.md:
