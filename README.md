@@ -116,6 +116,7 @@ A unit test (`src/repo/workflows.test.ts`) fails if any workflow uses an unpinne
 
 ## Security
 
+- **Security report** (every control with its status, every finding): [`docs/security-report.md`](docs/security-report.md)
 - Threat model: [`docs/threat-model.md`](docs/threat-model.md)
 - Security decisions: [`docs/security-decisions.md`](docs/security-decisions.md)
 - Reporting: [`SECURITY.md`](SECURITY.md)
